@@ -1,5 +1,7 @@
 import * as net from "node:net";
 import * as readline from "node:readline";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 
 // Configuration interface
@@ -18,6 +20,7 @@ class TcpClient {
   private startTime = Date.now();
   private lastReportTime = Date.now();
   private reportInterval = 5000; // Report every 5 seconds
+  private logFile: string;
 
   constructor() {
     this.client = new net.Socket();
@@ -25,12 +28,26 @@ class TcpClient {
       input: process.stdin,
       output: process.stdout,
     });
+
+    // Create log file name with today's date
+    const today = new Date();
+    const dateString = today.toISOString().split("T")[0]; // Format: YYYY-MM-DD
+    this.logFile = `trades-${dateString}.txt`;
+
+    // Create or clear the log file
+    fs.writeFileSync(this.logFile, "");
+    console.log(`Logging to file: ${this.logFile}`);
   }
 
   public connect(config: ConnectionConfig): void {
     // Connect to the TCP server
     this.client.connect(config.port, config.host, () => {
       console.log("Connected to server");
+      this.logToFile(
+        `Connected to ${config.host}:${
+          config.port
+        } at ${new Date().toISOString()}`
+      );
       this.client.write(`${config.magicToken}\n`);
       this.client.write(`${config.username}\n`);
       this.client.write(`${config.password}\n`);
@@ -47,16 +64,24 @@ class TcpClient {
       // Report message rate periodically
       this.reportMessageRate();
 
+      // Log to console
       console.log(message);
       console.log("\n");
       console.log(parsed);
       console.log("=================================================\n");
+
+      // Log to file
+      this.logToFile(
+        `${message}\n\n${parsed}\n=================================================\n`
+      );
+
       this.prompt();
     });
 
     // Handle connection close
     this.client.on("close", () => {
       console.log("Connection closed");
+      this.logToFile(`Connection closed at ${new Date().toISOString()}`);
       this.rl.close();
       process.exit(0);
     });
@@ -64,11 +89,22 @@ class TcpClient {
     // Handle errors
     this.client.on("error", (err: Error) => {
       console.error(`Connection error: ${err.message}`);
+      this.logToFile(
+        `Connection error: ${err.message} at ${new Date().toISOString()}`
+      );
       this.cleanup();
     });
 
     // Start reading from console
     this.setupConsoleInput();
+  }
+
+  private logToFile(content: string): void {
+    try {
+      fs.appendFileSync(this.logFile, `${content}\n`);
+    } catch (error) {
+      console.error(`Error writing to log file: ${error}`);
+    }
   }
 
   private reportMessageRate(): void {
@@ -81,18 +117,19 @@ class TcpClient {
     const messagesPerSecond = this.messageCount / totalElapsed;
     const messagesInInterval = this.messageCount;
 
-    console.log("\n--- Performance Metrics ---");
-    console.log(`Total messages: ${this.messageCount}`);
-    console.log(`Elapsed time: ${totalElapsed.toFixed(2)} seconds`);
-    console.log(
-      `Average rate: ${messagesPerSecond.toFixed(2)} messages/second`
-    );
-    console.log(
+    const metrics = [
+      "\n--- Performance Metrics ---",
+      `Total messages: ${this.messageCount}`,
+      `Elapsed time: ${totalElapsed.toFixed(2)} seconds`,
+      `Average rate: ${messagesPerSecond.toFixed(2)} messages/second`,
       `Current rate: ${(messagesInInterval / (elapsed / 1000)).toFixed(
         2
-      )} messages/second`
-    );
-    console.log("---------------------------\n");
+      )} messages/second`,
+      "---------------------------\n",
+    ].join("\n");
+
+    console.log(metrics);
+    this.logToFile(metrics);
 
     // Reset interval counter
     this.lastReportTime = now;
@@ -112,6 +149,7 @@ class TcpClient {
 
       // Send user input to server with newline
       this.client.write(`${input}\n`);
+      this.logToFile(`User input: ${input}`);
       this.prompt();
     });
   }
