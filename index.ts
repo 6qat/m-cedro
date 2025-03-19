@@ -1,4 +1,3 @@
-import * as readline from "node:readline";
 import * as fs from "node:fs";
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 
@@ -19,18 +18,13 @@ interface TcpSocket {
 
 class TcpClient {
   private client: TcpSocket | null = null;
-  private rl: readline.Interface;
   private messageCount = 0;
   private startTime = Date.now();
   private lastReportTime = Date.now();
   private logFile: string;
+  private inputBuffer = "";
 
   constructor() {
-    this.rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
     // Create log file name with today's date
     const today = new Date();
     const dateString = today.toISOString().split("T")[0] as string; // Format: YYYY-MM-DD
@@ -108,8 +102,7 @@ class TcpClient {
           close: (socket) => {
             console.log("Connection closed");
             this.logToFile(`Connection closed at ${new Date().toISOString()}`);
-            this.rl.close();
-            process.exit(0);
+            this.cleanup();
           },
           error: (socket, error) => {
             console.error(`Connection error: ${error.message}`);
@@ -178,11 +171,10 @@ class TcpClient {
   }
 
   private setupConsoleInput(): void {
-    this.prompt();
-  }
-
-  private prompt(): void {
-    this.rl.question("", (input: string) => {
+    // Set up Bun's stdin to handle user input
+    process.stdin.on("data", (data: Buffer) => {
+      const input = data.toString().trim();
+      
       if (input.toLowerCase() === "exit") {
         this.cleanup();
         return;
@@ -193,8 +185,14 @@ class TcpClient {
         this.client.write(`${input}\n`);
         this.logToFile(`User input: ${input}`);
       }
-      this.prompt();
     });
+    
+    this.prompt();
+  }
+
+  private prompt(): void {
+    // Simple prompt for user input
+    process.stdout.write("> ");
   }
 
   private cleanup(): void {
@@ -202,7 +200,7 @@ class TcpClient {
       this.client.end();
       this.client = null;
     }
-    this.rl.close();
+    
     process.exit(0);
   }
 }
