@@ -30,14 +30,8 @@ export interface CedroMessage {
   average?: number; // 42: Média
   marketCode?: number; // 44: Código do Mercado
   assetTypeCode?: number; // 45: Código do tipo do ativo
-  standardLot?: number; // 46: Lote padrão
-  assetDescription?: string; // 47: Descrição do ativo
-  lastTradeDate?: string; // 54: Data do último negócio
-  buyBrokerCode?: number; // 62: Código da corretora que realizou a última compra
-  sellBrokerCode?: number; // 63: Código da corretora que realizou a última venda
-  expirationDate?: string; // 64: Data do vencimento (Mercado de opções)
-  priceDiff?: number; // 86: Diff (Preço Atual - Previous)
   assetPhase?: string; // 88: Fase do grupo do ativo
+  assetDescription?: string; // 47: Descrição do ativo
   openInterest?: number; // 100: Quantidade de contratos abertos
   tickDirection?: string; // 106: TickDirection (BMF FIX)
   securityId?: string; // 105: SecurityId (BMF FIX)
@@ -48,6 +42,9 @@ export interface CedroMessage {
   dayVolumeVariation?: number; // 135: Variação do volume até a hora
   lastModificationTimeMs?: string; // 142: Horário da última modificação (HHMMSSmmm)
   lastTradeTimeMs?: string; // 143: Horário do último negócio (HHMMSSmmm)
+
+  // Add other fields as needed
+  [key: string]: string | number | Record<number, string | number> | undefined;
 }
 
 // Known field mappings based on the provided documentation
@@ -191,26 +188,23 @@ const FIELD_MAPPINGS: Record<number, string> = {
  * @returns A structured object with the parsed data
  */
 export function parseCedroMessage(message: string): CedroMessage {
-  // Remove trailing ! if present
-  const cleanMessage = message.endsWith("!") ? message.slice(0, -1) : message;
-
-  // Split by colon
-  const parts = cleanMessage.split(":");
-
-  // First part should be 'T', second part is the ticker
-  if (parts[0] !== "T") {
-    const result: CedroMessage = {
-      ticker: parts[0] as string,
+  // Check if this is a valid Cedro message
+  if (!message.startsWith("T:")) {
+    return {
+      ticker: message,
       fields: {},
     };
-    return result;
   }
 
-  const ticker = parts[1] as string;
-  const fields: Record<number, string | number> = {};
+  // Split the message by colons
+  const parts = message.split(":");
 
-  // Extract time from parts[2] if it exists
-  const time = parts.length > 2 ? parts[2] : "";
+  // Extract ticker and time
+  const ticker = parts[1] as string;
+  const time = parts[2] as string;
+
+  // Initialize fields object
+  const fields: Record<number, string | number> = {};
 
   // Process the rest of the parts as field:value pairs
   for (let i = 3; i < parts.length; i += 2) {
@@ -219,14 +213,12 @@ export function parseCedroMessage(message: string): CedroMessage {
       const rawValue = parts[i + 1] as string;
 
       // Try to convert numeric values
-      const value = !Number.isNaN(Number(rawValue))
-        ? Number(rawValue)
-        : rawValue;
+      const value = !Number.isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
       fields[fieldId] = value;
     }
   }
 
-  // Create the base message
+  // Create the result object
   const result: CedroMessage = {
     ticker,
     fields,
@@ -241,7 +233,7 @@ export function parseCedroMessage(message: string): CedroMessage {
   for (const [fieldId, fieldName] of Object.entries(FIELD_MAPPINGS)) {
     const numericId = Number.parseInt(fieldId, 10);
     if (fields[numericId] !== undefined) {
-      (result as any)[fieldName] = fields[numericId];
+      result[fieldName] = fields[numericId];
     }
   }
 
@@ -292,10 +284,7 @@ export function formatCedroMessage(message: CedroMessage): string {
   }
 
   // Format bid/ask data
-  if (
-    message.bestBidPrice !== undefined &&
-    message.bestAskPrice !== undefined
-  ) {
+  if (message.bestBidPrice !== undefined && message.bestAskPrice !== undefined) {
     result += `Compra/Venda: ${message.bestBidPrice}/${message.bestAskPrice}\n`;
   }
 
@@ -361,9 +350,7 @@ export function formatCedroMessage(message: CedroMessage): string {
       13: "ETF",
       17: "Opção sobre futuro",
     };
-    result += `Tipo de Ativo: ${
-      assetTypes[message.assetTypeCode] || message.assetTypeCode
-    }\n`;
+    result += `Tipo de Ativo: ${assetTypes[message.assetTypeCode] || message.assetTypeCode}\n`;
   }
 
   if (message.assetPhase !== undefined) {
@@ -393,9 +380,7 @@ export function formatCedroMessage(message: CedroMessage): string {
       "-": "Baixa",
       "0-": "Estável (último movimento foi baixa)",
     };
-    result += `Direção: ${
-      directions[message.tickDirection] || message.tickDirection
-    }\n`;
+    result += `Direção: ${directions[message.tickDirection] || message.tickDirection}\n`;
   }
 
   // Add a section for other fields that might be important but not formatted above
@@ -411,20 +396,19 @@ export function formatCedroMessage(message: CedroMessage): string {
 
   let otherFieldsAdded = false;
   for (const field of importantFields) {
-    if ((message as any)[field] !== undefined && !result.includes(field)) {
+    if (message[field] !== undefined && !result.includes(field)) {
       if (!otherFieldsAdded) {
         result += "\nOutros Dados:\n";
         otherFieldsAdded = true;
       }
-      result += `  ${field}: ${(message as any)[field]}\n`;
+      result += `  ${field}: ${message[field]}\n`;
     }
   }
 
   // Add raw fields section for debugging
   result += "\nCampos Originais:\n";
   for (const [fieldId, value] of Object.entries(message.fields)) {
-    const fieldName =
-      FIELD_MAPPINGS[Number.parseInt(fieldId, 10)] || `Campo ${fieldId}`;
+    const fieldName = FIELD_MAPPINGS[Number.parseInt(fieldId, 10)] || `Campo ${fieldId}`;
     result += `  ${fieldId} (${fieldName}): ${value}\n`;
   }
 
