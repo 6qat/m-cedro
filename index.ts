@@ -14,6 +14,10 @@ interface ConnectionConfig {
 class TcpClient {
   private client: net.Socket;
   private rl: readline.Interface;
+  private messageCount = 0;
+  private startTime = Date.now();
+  private lastReportTime = Date.now();
+  private reportInterval = 5000; // Report every 5 seconds
 
   constructor() {
     this.client = new net.Socket();
@@ -36,7 +40,15 @@ class TcpClient {
     this.client.on("data", (data: Buffer) => {
       const message = data.toString().trim();
       const parsed = formatCedroMessage(parseCedroMessage(message));
+
+      // Increment message counter
+      this.messageCount++;
+
+      // Report message rate periodically
+      this.reportMessageRate();
+
       console.log(message);
+      console.log("\n");
       console.log(parsed);
       console.log("=================================================\n");
       this.prompt();
@@ -57,6 +69,34 @@ class TcpClient {
 
     // Start reading from console
     this.setupConsoleInput();
+  }
+
+  private reportMessageRate(): void {
+    const now = Date.now();
+    const elapsed = now - this.lastReportTime;
+
+    // Report message rate every reportInterval milliseconds
+    // if (elapsed >= this.reportInterval) {
+    const totalElapsed = (now - this.startTime) / 1000; // Convert to seconds
+    const messagesPerSecond = this.messageCount / totalElapsed;
+    const messagesInInterval = this.messageCount;
+
+    console.log("\n--- Performance Metrics ---");
+    console.log(`Total messages: ${this.messageCount}`);
+    console.log(`Elapsed time: ${totalElapsed.toFixed(2)} seconds`);
+    console.log(
+      `Average rate: ${messagesPerSecond.toFixed(2)} messages/second`
+    );
+    console.log(
+      `Current rate: ${(messagesInInterval / (elapsed / 1000)).toFixed(
+        2
+      )} messages/second`
+    );
+    console.log("---------------------------\n");
+
+    // Reset interval counter
+    this.lastReportTime = now;
+    // }
   }
 
   private setupConsoleInput(): void {
