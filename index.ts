@@ -1,7 +1,6 @@
 import * as net from "node:net";
 import * as readline from "node:readline";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 
 // Configuration interface
@@ -19,7 +18,6 @@ class TcpClient {
   private messageCount = 0;
   private startTime = Date.now();
   private lastReportTime = Date.now();
-  private reportInterval = 5000; // Report every 5 seconds
   private logFile: string;
 
   constructor() {
@@ -31,23 +29,43 @@ class TcpClient {
 
     // Create log file name with today's date
     const today = new Date();
-    const dateString = today.toISOString().split("T")[0]; // Format: YYYY-MM-DD
-    this.logFile = `trades-${dateString}.txt`;
+    const dateString = today.toISOString().split("T")[0] as string; // Format: YYYY-MM-DD
+
+    // Generate a filename with sequence number if needed
+    this.logFile = this.generateUniqueLogFileName(dateString);
 
     // Create or clear the log file
     fs.writeFileSync(this.logFile, "");
     console.log(`Logging to file: ${this.logFile}`);
   }
 
+  private generateUniqueLogFileName(dateString: string): string {
+    // Base filename without sequence number
+    const baseFileName = `trades-${dateString}.txt`;
+
+    // Check if file exists
+    if (!fs.existsSync(baseFileName)) {
+      return baseFileName;
+    }
+
+    // File exists, try with sequence numbers
+    let sequenceNumber = 1;
+    let fileName = `trades-${dateString}.${sequenceNumber}.txt`;
+
+    // Keep incrementing sequence number until we find an unused filename
+    while (fs.existsSync(fileName)) {
+      sequenceNumber++;
+      fileName = `trades-${dateString}.${sequenceNumber}.txt`;
+    }
+
+    return fileName;
+  }
+
   public connect(config: ConnectionConfig): void {
     // Connect to the TCP server
     this.client.connect(config.port, config.host, () => {
       console.log("Connected to server");
-      this.logToFile(
-        `Connected to ${config.host}:${
-          config.port
-        } at ${new Date().toISOString()}`
-      );
+      this.logToFile(`Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`);
       this.client.write(`${config.magicToken}\n`);
       this.client.write(`${config.username}\n`);
       this.client.write(`${config.password}\n`);
@@ -89,9 +107,7 @@ class TcpClient {
     // Handle errors
     this.client.on("error", (err: Error) => {
       console.error(`Connection error: ${err.message}`);
-      this.logToFile(
-        `Connection error: ${err.message} at ${new Date().toISOString()}`
-      );
+      this.logToFile(`Connection error: ${err.message} at ${new Date().toISOString()}`);
       this.cleanup();
     });
 
@@ -122,9 +138,7 @@ class TcpClient {
       `Total messages: ${this.messageCount}`,
       `Elapsed time: ${totalElapsed.toFixed(2)} seconds`,
       `Average rate: ${messagesPerSecond.toFixed(2)} messages/second`,
-      `Current rate: ${(messagesInInterval / (elapsed / 1000)).toFixed(
-        2
-      )} messages/second`,
+      `Current rate: ${(messagesInInterval / (elapsed / 1000)).toFixed(2)} messages/second`,
       "---------------------------\n",
     ].join("\n");
 
