@@ -35,8 +35,10 @@ class TcpClient {
     // Handle incoming data
     this.client.on("data", (data: Buffer) => {
       const message = data.toString().trim();
-      const parsed = parseCedroMessage(message);
+      const parsed = formatCedroMessage(parseCedroMessage(message));
+      console.log(message);
       console.log(parsed);
+      console.log("=================================================\n");
       this.prompt();
     });
 
