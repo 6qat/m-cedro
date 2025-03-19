@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 
 // Configuration interface
@@ -22,7 +21,6 @@ class TcpClient {
   private startTime = Date.now();
   private lastReportTime = Date.now();
   private logFile: string;
-  private inputBuffer = "";
 
   constructor() {
     // Create log file name with today's date
@@ -32,8 +30,8 @@ class TcpClient {
     // Generate a filename with sequence number if needed
     this.logFile = this.generateUniqueLogFileName(dateString);
 
-    // Create or clear the log file
-    fs.writeFileSync(this.logFile, "");
+    // Create or clear the log file using Bun's file system API
+    Bun.write(this.logFile, "");
     console.log(`Logging to file: ${this.logFile}`);
   }
 
@@ -41,8 +39,11 @@ class TcpClient {
     // Base filename without sequence number
     const baseFileName = `trades-${dateString}.txt`;
 
-    // Check if file exists
-    if (!fs.existsSync(baseFileName)) {
+    // Check if file exists using Bun's file API
+    const baseFile = Bun.file(baseFileName);
+    const baseFileExists = baseFile.size > 0;
+
+    if (!baseFileExists) {
       return baseFileName;
     }
 
@@ -51,9 +52,11 @@ class TcpClient {
     let fileName = `trades-${dateString}-${sequenceNumber}.txt`;
 
     // Keep incrementing sequence number until we find an unused filename
-    while (fs.existsSync(fileName)) {
+    let fileExists = Bun.file(fileName).size > 0;
+    while (fileExists) {
       sequenceNumber++;
       fileName = `trades-${dateString}-${sequenceNumber}.txt`;
+      fileExists = Bun.file(fileName).size > 0;
     }
 
     return fileName;
@@ -66,7 +69,7 @@ class TcpClient {
         hostname: config.host,
         port: config.port,
         socket: {
-          data: (socket, data) => {
+          data: async (socket, data) => {
             const message = Buffer.from(data).toString().trim();
             const parsed = formatCedroMessage(parseCedroMessage(message));
 
@@ -74,7 +77,7 @@ class TcpClient {
             this.messageCount++;
 
             // Report message rate periodically
-            this.reportMessageRate();
+            await this.reportMessageRate();
 
             // Log to console
             console.log(message);
@@ -83,38 +86,42 @@ class TcpClient {
             console.log("=================================================\n");
 
             // Log to file
-            this.logToFile(
+            await this.logToFile(
               `${message}\n\n${parsed}\n=================================================\n`
             );
 
             this.prompt();
           },
-          open: (socket) => {
+          open: async (socket) => {
             console.log("Connected to server");
-            this.logToFile(`Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`);
+            await this.logToFile(
+              `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
+            );
             socket.write(`${config.magicToken}\n`);
             socket.write(`${config.username}\n`);
             socket.write(`${config.password}\n`);
-            
+
             // Start reading from console after connection is established
             this.setupConsoleInput();
           },
-          close: (socket) => {
+          close: async (socket) => {
             console.log("Connection closed");
-            this.logToFile(`Connection closed at ${new Date().toISOString()}`);
+            await this.logToFile(`Connection closed at ${new Date().toISOString()}`);
             this.cleanup();
           },
-          error: (socket, error) => {
+          error: async (socket, error) => {
             console.error(`Connection error: ${error.message}`);
-            this.logToFile(`Connection error: ${error.message} at ${new Date().toISOString()}`);
+            await this.logToFile(
+              `Connection error: ${error.message} at ${new Date().toISOString()}`
+            );
             this.cleanup();
           },
           drain: () => {
             // Optional: Handle when the write buffer becomes empty
-          }
-        }
+          },
+        },
       });
-      
+
       // Cast the socket to our interface
       this.client = socket as unknown as TcpSocket;
 
@@ -123,29 +130,36 @@ class TcpClient {
         this.client.write(`${config.magicToken}\n`);
         this.client.write(`${config.username}\n`);
         this.client.write(`${config.password}\n`);
-        
+
         console.log("Connected to server");
-        this.logToFile(`Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`);
-        
+        await this.logToFile(
+          `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
+        );
+
         // Start reading from console
         this.setupConsoleInput();
       }
     } catch (error) {
       console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
-      this.logToFile(`Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`);
+      await this.logToFile(
+        `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
+      );
       this.cleanup();
     }
   }
 
-  private logToFile(content: string): void {
+  private async logToFile(content: string): Promise<void> {
     try {
-      fs.appendFileSync(this.logFile, `${content}\n`);
+      // Using Bun's file system API to append to a file
+      const file = Bun.file(this.logFile);
+      const existingContent = await file.text();
+      await Bun.write(this.logFile, `${existingContent}${content}\n`);
     } catch (error) {
       console.error(`Error writing to log file: ${error}`);
     }
   }
 
-  private reportMessageRate(): void {
+  private async reportMessageRate(): Promise<void> {
     const now = Date.now();
     const elapsed = now - this.lastReportTime;
 
@@ -164,7 +178,7 @@ class TcpClient {
     ].join("\n");
 
     console.log(metrics);
-    this.logToFile(metrics);
+    await this.logToFile(metrics);
 
     // Reset interval counter
     this.lastReportTime = now;
@@ -172,9 +186,9 @@ class TcpClient {
 
   private setupConsoleInput(): void {
     // Set up Bun's stdin to handle user input
-    process.stdin.on("data", (data: Buffer) => {
+    process.stdin.on("data", async (data: Buffer) => {
       const input = data.toString().trim();
-      
+
       if (input.toLowerCase() === "exit") {
         this.cleanup();
         return;
@@ -183,10 +197,10 @@ class TcpClient {
       // Send user input to server with newline
       if (this.client) {
         this.client.write(`${input}\n`);
-        this.logToFile(`User input: ${input}`);
+        await this.logToFile(`User input: ${input}`);
       }
     });
-    
+
     this.prompt();
   }
 
@@ -200,7 +214,7 @@ class TcpClient {
       this.client.end();
       this.client = null;
     }
-    
+
     process.exit(0);
   }
 }
@@ -221,7 +235,7 @@ async function main(): Promise<void> {
 
 // Use Bun's module detection instead of Node.js's
 if (import.meta.main) {
-  main().catch(err => {
+  main().catch((err) => {
     console.error("Error in main:", err);
     process.exit(1);
   });
