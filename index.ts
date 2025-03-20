@@ -31,8 +31,8 @@ class TcpClient {
     // Create log file name with today's date using local time
     const today = new Date();
     const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
-    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, "0");
     const dateString = `${year}-${month}-${day}`; // Format: YYYY-MM-DD
 
     // Generate a filename with sequence number if needed
@@ -46,34 +46,6 @@ class TcpClient {
     console.log(`Logging to file: ${this.logFile}`);
   }
 
-  // TODO: correct the used date
-  private generateUniqueLogFileName(dateString: string): string {
-    // Base filename without sequence number
-    const baseFileName = `trades-${dateString}.txt`;
-
-    // Check if file exists using Bun's file API
-    const baseFile = Bun.file(baseFileName);
-    const baseFileExists = baseFile.size > 0;
-
-    if (!baseFileExists) {
-      return baseFileName;
-    }
-
-    // File exists, try with sequence numbers
-    let sequenceNumber = 1;
-    let fileName = `trades-${dateString}-${sequenceNumber}.txt`;
-
-    // Keep incrementing sequence number until we find an unused filename
-    let fileExists = Bun.file(fileName).size > 0;
-    while (fileExists) {
-      sequenceNumber++;
-      fileName = `trades-${dateString}-${sequenceNumber}.txt`;
-      fileExists = Bun.file(fileName).size > 0;
-    }
-
-    return fileName;
-  }
-
   public async connect(config: ConnectionConfig): Promise<void> {
     try {
       // Connect to the TCP server using Bun.connect. Returns a socket which is ignored here.
@@ -84,6 +56,10 @@ class TcpClient {
           data: async (socket, data) => {
             const message = Buffer.from(data).toString().trim();
             const parsed = formatCedroMessage(parseCedroMessage(message));
+
+            if (!message.startsWith("T")) {
+              return;
+            }
 
             // Increment message counter
             this.messageCount++;
@@ -141,6 +117,33 @@ class TcpClient {
       );
       this.cleanup();
     }
+  }
+
+  private generateUniqueLogFileName(dateString: string): string {
+    // Base filename without sequence number
+    const baseFileName = `trades-${dateString}.txt`;
+
+    // Check if file exists using Bun's file API
+    const baseFile = Bun.file(baseFileName);
+    const baseFileExists = baseFile.size > 0;
+
+    if (!baseFileExists) {
+      return baseFileName;
+    }
+
+    // File exists, try with sequence numbers
+    let sequenceNumber = 1;
+    let fileName = `trades-${dateString}-${sequenceNumber}.txt`;
+
+    // Keep incrementing sequence number until we find an unused filename
+    let fileExists = Bun.file(fileName).size > 0;
+    while (fileExists) {
+      sequenceNumber++;
+      fileName = `trades-${dateString}-${sequenceNumber}.txt`;
+      fileExists = Bun.file(fileName).size > 0;
+    }
+
+    return fileName;
   }
 
   private async logToFile(content: string): Promise<void> {
