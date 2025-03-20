@@ -196,8 +196,8 @@ export function parseCedroMessage(message: string): CedroMessage {
     };
   }
 
-  // Split the message by colons
-  const parts = message.split(":");
+  // remove the last character if it is !
+  const parts = message.endsWith("!") ? message.slice(0, -1).split(":") : message.split(":");
 
   // Extract ticker and time
   const ticker = parts[1] as string;
