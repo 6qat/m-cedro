@@ -21,6 +21,11 @@ class TcpClient {
   private startTime = Date.now();
   private lastReportTime = Date.now();
   private logFile: string;
+  private logWriter: {
+    write: (data: string) => number;
+    flush: () => number | Promise<number>;
+    end: () => void;
+  }; // Type for FileSink with required methods
 
   constructor() {
     // Create log file name with today's date
@@ -30,8 +35,11 @@ class TcpClient {
     // Generate a filename with sequence number if needed
     this.logFile = this.generateUniqueLogFileName(dateString);
 
-    // Create or clear the log file using Bun's file system API
+    // Create the log file and initialize the writer
     Bun.write(this.logFile, "");
+    const file = Bun.file(this.logFile);
+    this.logWriter = file.writer();
+
     console.log(`Logging to file: ${this.logFile}`);
   }
 
@@ -95,15 +103,14 @@ class TcpClient {
           },
           open: async (socket) => {
             console.log("Connected to server");
+            // Cast the socket to our interface
+            this.client = socket as unknown as TcpSocket;
             await this.logToFile(
               `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
             );
-            socket.write(`${config.magicToken}\n`);
-            socket.write(`${config.username}\n`);
-            socket.write(`${config.password}\n`);
-
-            // Cast the socket to our interface
-            this.client = socket as unknown as TcpSocket;
+            this.client.write(`${config.magicToken}\n`);
+            this.client.write(`${config.username}\n`);
+            this.client.write(`${config.password}\n`);
             // Start reading from console after connection is established
             this.setupConsoleInput();
           },
@@ -135,10 +142,9 @@ class TcpClient {
 
   private async logToFile(content: string): Promise<void> {
     try {
-      // Using Bun's file system API to append to a file
-      const file = Bun.file(this.logFile);
-      const existingContent = await file.text();
-      await Bun.write(this.logFile, `${existingContent}${content}\n`);
+      // Using the persistent FileSink writer to append to the file
+      this.logWriter.write(`${content}\n`);
+      await this.logWriter.flush();
     } catch (error) {
       console.error(`Error writing to log file: ${error}`);
     }
@@ -198,6 +204,11 @@ class TcpClient {
     if (this.client) {
       this.client.end();
       this.client = null;
+    }
+
+    // Close the log writer
+    if (this.logWriter) {
+      this.logWriter.end();
     }
 
     process.exit(0);
