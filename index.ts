@@ -17,9 +17,9 @@ interface TcpSocket {
 
 class TcpClient {
   private client: TcpSocket | null = null;
-  private messageCount = 0;
-  private startTime = Date.now();
-  private lastReportTime = Date.now();
+  private messageCount = 0n;
+  private startTime = process.hrtime.bigint();
+  private lastReportTime = process.hrtime.bigint();
   private logFile: string;
   private logWriter: {
     write: (data: string) => number;
@@ -151,20 +151,19 @@ class TcpClient {
   }
 
   private async reportMessageRate(): Promise<void> {
-    const now = Date.now();
-    const elapsed = now - this.lastReportTime;
-
-    // Report message rate every reportInterval milliseconds
-    const totalElapsed = (now - this.startTime) / 1000; // Convert to seconds
-    const messagesPerSecond = this.messageCount / totalElapsed;
-    const messagesInInterval = this.messageCount;
+    const now = process.hrtime.bigint();
+    const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
+    const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
+    const messagesPerMicroSecond = Number(this.messageCount) / Number(totalElapsed);
+    const messagesInInterval = 1;
 
     const metrics = [
       "\n--- Performance Metrics ---",
       `Total messages: ${this.messageCount}`,
-      `Elapsed time: ${totalElapsed.toFixed(2)} seconds`,
-      `Average rate: ${messagesPerSecond.toFixed(2)} messages/second`,
-      `Current rate: ${(messagesInInterval / (elapsed / 1000)).toFixed(2)} messages/second`,
+      `Total elapsed time: ${Number(totalElapsed) / 1000000} seconds`,
+      `Elapsed time: ${Number(elapsed) / 1000000} seconds`,
+      `Average rate: ${messagesPerMicroSecond * 1000000} messages/second`,
+      `Current rate: ${(Number(messagesInInterval) * 1000000) / Number(elapsed)} messages/second`,
       "---------------------------\n",
     ].join("\n");
 
