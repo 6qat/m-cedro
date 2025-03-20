@@ -28,9 +28,12 @@ class TcpClient {
   }; // Type for FileSink with required methods
 
   constructor() {
-    // Create log file name with today's date
+    // Create log file name with today's date using local time
     const today = new Date();
-    const dateString = today.toISOString().split("T")[0] as string; // Format: YYYY-MM-DD
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`; // Format: YYYY-MM-DD
 
     // Generate a filename with sequence number if needed
     this.logFile = this.generateUniqueLogFileName(dateString);
