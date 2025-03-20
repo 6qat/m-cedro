@@ -35,6 +35,7 @@ class TcpClient {
     console.log(`Logging to file: ${this.logFile}`);
   }
 
+  // TODO: correct the used date
   private generateUniqueLogFileName(dateString: string): string {
     // Base filename without sequence number
     const baseFileName = `trades-${dateString}.txt`;
@@ -64,8 +65,8 @@ class TcpClient {
 
   public async connect(config: ConnectionConfig): Promise<void> {
     try {
-      // Connect to the TCP server using Bun.connect
-      const socket = await Bun.connect({
+      // Connect to the TCP server using Bun.connect. Returns a socket which is ignored here.
+      await Bun.connect({
         hostname: config.host,
         port: config.port,
         socket: {
@@ -101,6 +102,8 @@ class TcpClient {
             socket.write(`${config.username}\n`);
             socket.write(`${config.password}\n`);
 
+            // Cast the socket to our interface
+            this.client = socket as unknown as TcpSocket;
             // Start reading from console after connection is established
             this.setupConsoleInput();
           },
@@ -121,24 +124,6 @@ class TcpClient {
           },
         },
       });
-
-      // Cast the socket to our interface
-      this.client = socket as unknown as TcpSocket;
-
-      // Send authentication after connection
-      if (this.client) {
-        this.client.write(`${config.magicToken}\n`);
-        this.client.write(`${config.username}\n`);
-        this.client.write(`${config.password}\n`);
-
-        console.log("Connected to server");
-        await this.logToFile(
-          `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
-        );
-
-        // Start reading from console
-        this.setupConsoleInput();
-      }
     } catch (error) {
       console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
       await this.logToFile(
