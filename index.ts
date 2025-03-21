@@ -54,29 +54,30 @@ class TcpClient {
         port: config.port,
         socket: {
           data: async (socket, data) => {
-            const message = Buffer.from(data).toString().trim();
-            const parsed = formatCedroMessage(parseCedroMessage(message));
+            const messages = Buffer.from(data).toString().trim().split("!");
+            for (const message of messages) {
+              const parsed = formatCedroMessage(parseCedroMessage(message));
 
-            if (!message.startsWith("T")) {
-              return;
+              if (!message.startsWith("T")) {
+                return;
+              }
+              this.messageCount++;
+
+              // Log to console
+              console.log(message);
+              console.log("\n");
+              console.log(parsed);
+              console.log("=================================================\n");
+
+              // Report message rate periodically
+              await this.reportMessageRate();
+
+              // Log to file
+              await this.logToFile(
+                `${message}\n\n${parsed}\n=================================================\n`
+              );
             }
-
             // Increment message counter
-            this.messageCount++;
-
-            // Report message rate periodically
-            await this.reportMessageRate();
-
-            // Log to console
-            console.log(message);
-            console.log("\n");
-            console.log(parsed);
-            console.log("=================================================\n");
-
-            // Log to file
-            await this.logToFile(
-              `${message}\n\n${parsed}\n=================================================\n`
-            );
 
             this.prompt();
           },
