@@ -5,6 +5,7 @@
   "private": true,
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@types/amqplib": "^0.10.7",
     "@types/bun": "latest"
   },
   "peerDependencies": {
@@ -14,5 +15,8 @@
     "format": "biome format --write .",
     "lint": "biome lint .",
     "check": "biome check --apply ."
+  },
+  "dependencies": {
+    "amqplib": "^0.10.5"
   }
 }
