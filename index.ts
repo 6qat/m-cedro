@@ -1,4 +1,6 @@
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
+import { api } from "./convex/_generated/api";
+import { ConvexClient } from "convex/browser";
 
 // Configuration interface
 interface ConnectionConfig {
@@ -15,6 +17,14 @@ interface TcpSocket {
   end(): void;
 }
 
+type PerformanceMetrics = {
+  totalMessages: number; // messages (messages)
+  totalElapsed: number; // seconds (total elapsed time)
+  elapsed: number; // seconds (elapsed time)
+  averageRate: number; // messages per second (average rate)
+  currentRate: number; // messages per second (current rate)
+};
+
 class TcpClient {
   private client: TcpSocket | null = null;
   private messageCount = 0n;
@@ -26,8 +36,13 @@ class TcpClient {
     flush: () => number | Promise<number>;
     end: () => void;
   }; // Type for FileSink with required methods
+  private convexClient: ConvexClient;
 
   constructor() {
+    this.convexClient = new ConvexClient(
+      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : ""
+    );
+
     // Create log file name with today's date using local time
     const today = new Date();
     const year = today.getFullYear();
@@ -53,6 +68,20 @@ class TcpClient {
         hostname: config.host,
         port: config.port,
         socket: {
+          open: async (socket) => {
+            console.log("Connected to server");
+            // Cast the socket to our interface
+            this.client = socket as unknown as TcpSocket;
+            await this.logToFile(
+              `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
+            );
+            this.client.write(`${config.magicToken}\n`);
+            this.client.write(`${config.username}\n`);
+            this.client.write(`${config.password}\n`);
+            // Start reading from console after connection is established
+            this.setupConsoleInput();
+          },
+
           data: async (socket, data) => {
             const messages = Buffer.from(data).toString().trim().split("!");
             for (const message of messages) {
@@ -67,10 +96,18 @@ class TcpClient {
               console.log(message);
               console.log("\n");
               console.log(parsed);
-              console.log("=================================================\n");
+              console.log(
+                "=================================================\n"
+              );
 
               // Report message rate periodically
-              await this.reportMessageRate();
+              const performanceMetrics = await this.getPerformanceMetrics();
+              console.log(performanceMetrics);
+
+              this.convexClient.mutation(api.cedro.sendRawMessage, {
+                line: message,
+                nano: Number(process.hrtime.bigint()),
+              });
 
               // Log to file
               await this.logToFile(
@@ -81,22 +118,12 @@ class TcpClient {
 
             this.prompt();
           },
-          open: async (socket) => {
-            console.log("Connected to server");
-            // Cast the socket to our interface
-            this.client = socket as unknown as TcpSocket;
-            await this.logToFile(
-              `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
-            );
-            this.client.write(`${config.magicToken}\n`);
-            this.client.write(`${config.username}\n`);
-            this.client.write(`${config.password}\n`);
-            // Start reading from console after connection is established
-            this.setupConsoleInput();
-          },
+
           close: async (socket) => {
             console.log("Connection closed");
-            await this.logToFile(`Connection closed at ${new Date().toISOString()}`);
+            await this.logToFile(
+              `Connection closed at ${new Date().toISOString()}`
+            );
             this.cleanup();
           },
           error: async (socket, error) => {
@@ -112,7 +139,9 @@ class TcpClient {
         },
       });
     } catch (error) {
-      console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `Connection error: ${error instanceof Error ? error.message : String(error)}`
+      );
       await this.logToFile(
         `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
       );
@@ -157,28 +186,29 @@ class TcpClient {
     }
   }
 
-  private async reportMessageRate(): Promise<void> {
+  private async getPerformanceMetrics(): Promise<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
     const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
-    const messagesPerMicroSecond = Number(this.messageCount) / Number(totalElapsed);
+    const messagesPerMicroSecond =
+      Number(this.messageCount) / Number(totalElapsed);
     const messagesInInterval = 1;
 
-    const metrics = [
-      "\n--- Performance Metrics ---",
-      `Total messages: ${this.messageCount}`,
-      `Total elapsed time: ${Number(totalElapsed) / 1000000} seconds`,
-      `Elapsed time: ${Number(elapsed) / 1000000} seconds`,
-      `Average rate: ${messagesPerMicroSecond * 1000000} messages/second`,
-      `Current rate: ${(Number(messagesInInterval) * 1000000) / Number(elapsed)} messages/second`,
-      "---------------------------\n",
-    ].join("\n");
+    const performanceMetrics: PerformanceMetrics = {
+      totalMessages: Number(this.messageCount),
+      totalElapsed: Number(totalElapsed) / 1000000, // seconds
+      elapsed: Number(elapsed) / 1000000, // seconds
+      averageRate: messagesPerMicroSecond * 1000000, // messages/second
+      currentRate: (Number(messagesInInterval) * 1000000) / Number(elapsed), // messages/second
+    };
 
-    console.log(metrics);
-    await this.logToFile(metrics);
+    // console.log(metrics);
+    // await this.logToFile(metrics);
 
     // Reset interval counter
     this.lastReportTime = now;
+
+    return performanceMetrics;
   }
 
   private setupConsoleInput(): void {
