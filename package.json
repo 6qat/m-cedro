@@ -6,7 +6,8 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/amqplib": "^0.10.7",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "concurrently": "^9.1.2"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -14,9 +15,13 @@
   "scripts": {
     "format": "biome format --write .",
     "lint": "biome lint .",
-    "check": "biome check --apply ."
+    "check": "biome check --apply .",
+    "dev:convex": "convex dev",
+    "dev:server": "bun run index.ts",
+    "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\""
   },
   "dependencies": {
-    "amqplib": "^0.10.5"
+    "amqplib": "^0.10.5",
+    "convex": "^1.21.0"
   }
 }
