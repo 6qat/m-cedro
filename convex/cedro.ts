@@ -15,6 +15,25 @@ export const sendRawMessage = mutation({
   },
 });
 
+export const deleteRawMessage = mutation({
+  args: {
+    line: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Query for messages with the matching line using the by_line index
+    const messages = await ctx.db
+      .query("raw_messages")
+      .withIndex("by_line", (q) => q.eq("line", args.line))
+      .collect();
+
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+
+    return { success: true, message: "Messages deleted successfully" };
+  },
+});
+
 export const getRawMessages = query({
   args: {},
   handler: async (ctx) => {
