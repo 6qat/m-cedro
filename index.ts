@@ -1,6 +1,8 @@
 import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 import { api } from "./convex/_generated/api";
 import { ConvexClient } from "convex/browser";
+import { ok, err, Result } from "neverthrow";
+import { some, none, option, type Option } from "ts-option";
 
 // Configuration interface
 interface ConnectionConfig {
@@ -30,6 +32,7 @@ class TcpClient {
   private messageCount = 0n;
   private startTime = process.hrtime.bigint();
   private lastReportTime = process.hrtime.bigint();
+  private messagesInInterval = 1;
   private logFile: string;
   private logWriter: {
     write: (data: string) => number;
@@ -70,11 +73,12 @@ class TcpClient {
         socket: {
           open: async (socket) => {
             console.log("Connected to server");
-            // Cast the socket to our interface
-            this.client = socket as unknown as TcpSocket;
             await this.logToFile(
               `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
             );
+
+            // Cast the socket to our interface
+            this.client = socket as unknown as TcpSocket;
             this.client.write(`${config.magicToken}\n`);
             this.client.write(`${config.username}\n`);
             this.client.write(`${config.password}\n`);
@@ -87,22 +91,37 @@ class TcpClient {
             for (const message of messages) {
               const parsed = formatCedroMessage(parseCedroMessage(message));
 
-              if (!message.startsWith("T")) {
+              if (!message.startsWith("T") && !message.startsWith("SYN")) {
                 return;
               }
               this.messageCount++;
 
               // Log to console
+              console.log("\n");
               console.log(message);
               console.log("\n");
               console.log(parsed);
-              console.log(
-                "=================================================\n"
-              );
 
               // Report message rate periodically
-              const performanceMetrics = await this.getPerformanceMetrics();
-              console.log(performanceMetrics);
+              const performanceMetrics = this.getPerformanceMetrics(21000);
+              console.log("Is defined???", performanceMetrics.isDefined);
+              performanceMetrics.match({
+                some: (metrics) => {
+                  console.log(
+                    "================================================="
+                  );
+                  console.log(metrics);
+                  console.log(
+                    "================================================="
+                  );
+                  this.logToFile(
+                    `Performance metrics: ${JSON.stringify(metrics, null, 2)}`
+                  );
+                },
+                none: () => {
+                  console.log("No performance metrics");
+                },
+              });
 
               this.convexClient.mutation(api.cedro.sendRawMessage, {
                 line: message,
@@ -110,7 +129,7 @@ class TcpClient {
               });
 
               // Log to file
-              await this.logToFile(
+              this.logToFile(
                 `${message}\n\n${parsed}\n=================================================\n`
               );
             }
@@ -176,39 +195,42 @@ class TcpClient {
     return fileName;
   }
 
-  private async logToFile(content: string): Promise<void> {
+  private logToFile(content: string): void {
     try {
       // Using the persistent FileSink writer to append to the file
       this.logWriter.write(`${content}\n`);
-      await this.logWriter.flush();
+      this.logWriter.flush();
     } catch (error) {
       console.error(`Error writing to log file: ${error}`);
     }
   }
 
-  private async getPerformanceMetrics(): Promise<PerformanceMetrics> {
+  private getPerformanceMetrics(interval = 20000): Option<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
+
+    if (Number(elapsed) / 1000 < interval) {
+      console.log(`Elapsed: ${Number(elapsed) / 1000} < ${interval}`);
+      this.messagesInInterval++;
+      return none;
+    }
     const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
     const messagesPerMicroSecond =
       Number(this.messageCount) / Number(totalElapsed);
-    const messagesInInterval = 1;
 
     const performanceMetrics: PerformanceMetrics = {
       totalMessages: Number(this.messageCount),
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds
       averageRate: messagesPerMicroSecond * 1000000, // messages/second
-      currentRate: (Number(messagesInInterval) * 1000000) / Number(elapsed), // messages/second
+      currentRate:
+        (Number(this.messagesInInterval) * 1000000) / Number(elapsed), // messages/second
     };
-
-    // console.log(metrics);
-    // await this.logToFile(metrics);
-
     // Reset interval counter
     this.lastReportTime = now;
+    this.messagesInInterval = 1;
 
-    return performanceMetrics;
+    return some(performanceMetrics);
   }
 
   private setupConsoleInput(): void {
