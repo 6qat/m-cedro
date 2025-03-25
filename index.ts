@@ -2,7 +2,7 @@ import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
 import { api } from "./convex/_generated/api";
 import { ConvexClient } from "convex/browser";
 import { ok, err, Result } from "neverthrow";
-import { some, none, option, type Option } from "ts-option";
+import { Option } from "effect";
 
 // Configuration interface
 interface ConnectionConfig {
@@ -103,10 +103,10 @@ class TcpClient {
               console.log(parsed);
 
               // Report message rate periodically
-              const performanceMetrics = this.getPerformanceMetrics(21000);
-              console.log("Is defined???", performanceMetrics.isDefined);
-              performanceMetrics.match({
-                some: (metrics) => {
+              const performanceMetrics = this.getPerformanceMetrics(1000);
+              console.log("Is defined???", Option.isSome(performanceMetrics));
+              Option.match(performanceMetrics, {
+                onSome: (metrics) => {
                   console.log(
                     "================================================="
                   );
@@ -118,7 +118,7 @@ class TcpClient {
                     `Performance metrics: ${JSON.stringify(metrics, null, 2)}`
                   );
                 },
-                none: () => {
+                onNone: () => {
                   console.log("No performance metrics");
                 },
               });
@@ -205,14 +205,18 @@ class TcpClient {
     }
   }
 
-  private getPerformanceMetrics(interval = 20000): Option<PerformanceMetrics> {
+  // TODO: Colocar a métrica Contratos negociados por segundo
+  // TODO: Colocar a métrica Taxa máxima atingida de mensagens por segundo
+  private getPerformanceMetrics(
+    interval = 20000
+  ): Option.Option<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
 
     if (Number(elapsed) / 1000 < interval) {
       console.log(`Elapsed: ${Number(elapsed) / 1000} < ${interval}`);
       this.messagesInInterval++;
-      return none;
+      return Option.none();
     }
     const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
     const messagesPerMicroSecond =
@@ -230,7 +234,7 @@ class TcpClient {
     this.lastReportTime = now;
     this.messagesInInterval = 1;
 
-    return some(performanceMetrics);
+    return Option.some(performanceMetrics);
   }
 
   private setupConsoleInput(): void {
@@ -262,6 +266,9 @@ class TcpClient {
     if (this.client) {
       this.client.end();
       this.client = null;
+    }
+    if (this.convexClient) {
+      this.convexClient.close();
     }
 
     // Close the log writer
