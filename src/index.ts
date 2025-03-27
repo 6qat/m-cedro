@@ -1,7 +1,6 @@
-import { parseCedroMessage, formatCedroMessage } from "./cedroParser";
-import { api } from "./convex/_generated/api";
+import { parseCedroMessage, formatCedroMessage } from "./cedro/cedroParser";
+import { api } from "../convex/_generated/api";
 import { ConvexClient } from "convex/browser";
-import { ok, err, Result } from "neverthrow";
 import { Option } from "effect";
 
 // Configuration interface

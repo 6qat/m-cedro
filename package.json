@@ -21,9 +21,10 @@
     "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\""
   },
   "dependencies": {
+    "@elysiajs/swagger": "^1.2.2",
     "amqplib": "^0.10.5",
     "convex": "^1.21.0",
     "effect": "^3.14.1",
-    "neverthrow": "^8.2.0"
+    "elysia": "^1.2.25"
   }
 }
