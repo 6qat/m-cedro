@@ -24,7 +24,7 @@
     "@elysiajs/swagger": "^1.2.2",
     "amqplib": "^0.10.7",
     "convex": "^1.21.0",
-    "effect": "^3.14.3",
+    "effect": "^3.14.4",
     "elysia": "^1.2.25"
   }
 }
