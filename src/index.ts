@@ -2,6 +2,7 @@ import { parseCedroMessage, formatCedroMessage } from "./cedro/cedroParser";
 import { api } from "../convex/_generated/api";
 import { ConvexClient } from "convex/browser";
 import { Option } from "effect";
+import Ably from "ably";
 
 // Configuration interface
 interface ConnectionConfig {
@@ -39,11 +40,14 @@ class TcpClient {
     end: () => void;
   }; // Type for FileSink with required methods
   private convexClient: ConvexClient;
+  private ablyClient: Ably.Realtime;
 
   constructor() {
-    this.convexClient = new ConvexClient(
-      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : ""
-    );
+    this.convexClient = new ConvexClient(Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : "");
+    this.ablyClient = new Ably.Realtime({ key: Bun.env.ABLY_KEY });
+    this.ablyClient.connection.once("connected", () => {
+      console.log("Connected to Ably!");
+    });
 
     // Create log file name with today's date using local time
     const today = new Date();
@@ -65,6 +69,11 @@ class TcpClient {
 
   public async connect(config: ConnectionConfig): Promise<void> {
     try {
+      const channel = this.ablyClient.channels.get("davinci");
+      await channel.subscribe("statistic", (message) => {
+        console.log(`Message received: ${message.data}`);
+      });
+
       // Connect to the TCP server using Bun.connect. Returns a socket which is ignored here.
       await Bun.connect({
         hostname: config.host,
@@ -106,28 +115,23 @@ class TcpClient {
               console.log("Is defined???", Option.isSome(performanceMetrics));
               Option.match(performanceMetrics, {
                 onSome: (metrics) => {
-                  console.log(
-                    "================================================="
-                  );
+                  console.log("=================================================");
                   console.log(metrics);
-                  console.log(
-                    "================================================="
-                  );
-                  this.logToFile(
-                    `Performance metrics: ${JSON.stringify(metrics, null, 2)}`
-                  );
+                  console.log("=================================================");
+                  this.logToFile(`Performance metrics: ${JSON.stringify(metrics, null, 2)}`);
+                  channel.publish("statistic", JSON.stringify(metrics));
                 },
                 onNone: () => {
                   console.log("No performance metrics");
                 },
               });
 
-              this.convexClient.mutation(api.cedro.sendRawMessage, {
-                line: message,
-                nano: Number(process.hrtime.bigint()),
-              });
+              // this.convexClient.mutation(api.cedro.sendRawMessage, {
+              //   line: message,
+              //   nano: Number(process.hrtime.bigint()),
+              // });
 
-              // Log to file
+              this.ablyClient; // Log to file
               this.logToFile(
                 `${message}\n\n${parsed}\n=================================================\n`
               );
@@ -139,9 +143,7 @@ class TcpClient {
 
           close: async (socket) => {
             console.log("Connection closed");
-            await this.logToFile(
-              `Connection closed at ${new Date().toISOString()}`
-            );
+            await this.logToFile(`Connection closed at ${new Date().toISOString()}`);
             this.cleanup();
           },
           error: async (socket, error) => {
@@ -157,9 +159,7 @@ class TcpClient {
         },
       });
     } catch (error) {
-      console.error(
-        `Connection error: ${error instanceof Error ? error.message : String(error)}`
-      );
+      console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
       await this.logToFile(
         `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
       );
@@ -206,9 +206,7 @@ class TcpClient {
 
   // TODO: Colocar a métrica Contratos negociados por segundo
   // TODO: Colocar a métrica Taxa máxima atingida de mensagens por segundo
-  private getPerformanceMetrics(
-    interval = 20000
-  ): Option.Option<PerformanceMetrics> {
+  private getPerformanceMetrics(interval = 20000): Option.Option<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
 
@@ -218,16 +216,14 @@ class TcpClient {
       return Option.none();
     }
     const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
-    const messagesPerMicroSecond =
-      Number(this.messageCount) / Number(totalElapsed);
+    const messagesPerMicroSecond = Number(this.messageCount) / Number(totalElapsed);
 
     const performanceMetrics: PerformanceMetrics = {
       totalMessages: Number(this.messageCount),
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds
       averageRate: messagesPerMicroSecond * 1000000, // messages/second
-      currentRate:
-        (Number(this.messagesInInterval) * 1000000) / Number(elapsed), // messages/second
+      currentRate: (Number(this.messagesInInterval) * 1000000) / Number(elapsed), // messages/second
     };
     // Reset interval counter
     this.lastReportTime = now;
