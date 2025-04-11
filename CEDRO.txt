@@ -1,3 +1,5 @@
+Tipos de campos não incluídos na documentação:
+
 146 Variação utilizando o ajuste do dia anterior (Float)
 147 Diff (Preço Atual - Ajuste do dia anterior) (Float)
 
