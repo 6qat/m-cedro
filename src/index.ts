@@ -20,6 +20,7 @@ interface TcpSocket {
 }
 
 type PerformanceMetrics = {
+  ticker: string;
   totalMessages: number; // messages (messages)
   totalElapsed: number; // seconds (total elapsed time)
   elapsed: number; // seconds (elapsed time)
@@ -143,14 +144,12 @@ class TcpClient {
 
           close: async (socket) => {
             console.log("Connection closed");
-            await this.logToFile(`Connection closed at ${new Date().toISOString()}`);
+            this.logToFile(`Connection closed at ${new Date().toISOString()}`);
             this.cleanup();
           },
           error: async (socket, error) => {
             console.error(`Connection error: ${error.message}`);
-            await this.logToFile(
-              `Connection error: ${error.message} at ${new Date().toISOString()}`
-            );
+            this.logToFile(`Connection error: ${error.message} at ${new Date().toISOString()}`);
             this.cleanup();
           },
           drain: () => {
@@ -160,7 +159,7 @@ class TcpClient {
       });
     } catch (error) {
       console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
-      await this.logToFile(
+      this.logToFile(
         `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
       );
       this.cleanup();
@@ -219,6 +218,7 @@ class TcpClient {
     const messagesPerMicroSecond = Number(this.messageCount) / Number(totalElapsed);
 
     const performanceMetrics: PerformanceMetrics = {
+      ticker: "WINJ25",
       totalMessages: Number(this.messageCount),
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds
