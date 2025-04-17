@@ -6,7 +6,7 @@
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/amqplib": "^0.10.7",
-    "@types/bun": "1.2.9",
+    "@types/bun": "1.2.10",
     "concurrently": "^9.1.2"
   },
   "peerDependencies": {
@@ -25,7 +25,7 @@
     "ably": "^2.6.5",
     "amqplib": "^0.10.7",
     "convex": "^1.23.0",
-    "effect": "^3.14.8",
+    "effect": "^3.14.10",
     "elysia": "^1.2.25"
   }
 }
