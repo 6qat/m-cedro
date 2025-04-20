@@ -22,10 +22,10 @@
   },
   "dependencies": {
     "@elysiajs/swagger": "^1.2.2",
-    "ably": "^2.6.5",
+    "ably": "^2.7.0",
     "amqplib": "^0.10.7",
     "convex": "^1.23.0",
-    "effect": "^3.14.10",
+    "effect": "^3.14.11",
     "elysia": "^1.2.25"
   }
 }
