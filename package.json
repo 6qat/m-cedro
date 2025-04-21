@@ -18,7 +18,8 @@
     "check": "biome check --apply .",
     "dev:convex": "convex dev",
     "dev:server": "bun run index.ts",
-    "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\""
+    "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\"",
+    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile out ./src/index.ts"
   },
   "dependencies": {
     "@elysiajs/swagger": "^1.2.2",
