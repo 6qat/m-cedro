@@ -42,6 +42,21 @@ export interface CedroMessage {
   dayVolumeVariation?: number; // 135: Variação do volume até a hora
   lastModificationTimeMs?: string; // 142: Horário da última modificação (HHMMSSmmm)
   lastTradeTimeMs?: string; // 143: Horário do último negócio (HHMMSSmmm)
+  variationUsingPreviousDayAdjustment?: number; // 146: Variação utilizando o ajuste do dia anterior
+  diffFromPreviousDayAdjustment?: number; // 147: Diff (Preço Atual - Ajuste do dia anterior)
+  tunnelUpperAuctionLimit?: number; // 148: Tunnel Upper Auction Limit
+  tunnelLowerAuctionLimit?: number; // 149: Tunnel Lower Auction Limit
+  tunnelUpperRejectionLimit?: number; // 150: Tunnel Upper Rejection Limit
+  tunnelLowerRejectionLimit?: number; // 151: Tunnel Lower Rejection Limit
+  tunnelUpperStaticLimit?: number; // 152: Tunnel Upper Static Limit
+  tunnelLowerStaticLimit?: number; // 153: Tunnel Lower Static Limit
+  expirationFullDate?: string; // 154: Data em que o ativo estará expirado (YYYYMMDD)
+  weekLowPrice?: number; // 155: Mínima da semana
+  weekHighPrice?: number; // 156: Máxima da semana
+  monthLowPrice?: number; // 157: Mínima do mês
+  monthHighPrice?: number; // 158: Máxima do mês
+  yearLowPrice?: number; // 159: Mínima do ano
+  yearHighPrice?: number; // 160: Máxima do ano
 
   // Add other fields as needed
   [key: string]: string | number | Record<number, string | number> | undefined;
@@ -163,6 +178,21 @@ const FIELD_MAPPINGS: Record<number, string> = {
   143: "lastTradeTimeMs",
   144: "bestBidTimeMs",
   145: "bestAskTimeMs",
+  146: "variationUsingPreviousDayAdjustment",
+  147: "diffFromPreviousDayAdjustment",
+  148: "tunnelUpperAuctionLimit",
+  149: "tunnelLowerAuctionLimit",
+  150: "tunnelUpperRejectionLimit",
+  151: "tunnelLowerRejectionLimit",
+  152: "tunnelUpperStaticLimit",
+  153: "tunnelLowerStaticLimit",
+  154: "expirationFullDate",
+  155: "weekLowPrice",
+  156: "weekHighPrice",
+  157: "monthLowPrice",
+  158: "monthHighPrice",
+  159: "yearLowPrice",
+  160: "yearHighPrice",
   // Tesouro Direto fields
   200: "unitPrice",
   201: "rateValue",
@@ -381,6 +411,104 @@ export function formatCedroMessage(message: CedroMessage): string {
       "0-": "Estável (último movimento foi baixa)",
     };
     result += `Direção: ${directions[message.tickDirection] || message.tickDirection}\n`;
+  }
+
+  // Add section for price limits
+  if (
+    message.tunnelUpperAuctionLimit !== undefined ||
+    message.tunnelLowerAuctionLimit !== undefined ||
+    message.tunnelUpperRejectionLimit !== undefined ||
+    message.tunnelLowerRejectionLimit !== undefined ||
+    message.tunnelUpperStaticLimit !== undefined ||
+    message.tunnelLowerStaticLimit !== undefined
+  ) {
+    result += "\nLimites de Preço:\n";
+
+    if (message.tunnelUpperAuctionLimit !== undefined) {
+      result += `  Limite Superior de Leilão: ${message.tunnelUpperAuctionLimit}\n`;
+    }
+    if (message.tunnelLowerAuctionLimit !== undefined) {
+      result += `  Limite Inferior de Leilão: ${message.tunnelLowerAuctionLimit}\n`;
+    }
+    if (message.tunnelUpperRejectionLimit !== undefined) {
+      result += `  Limite Superior de Rejeição: ${message.tunnelUpperRejectionLimit}\n`;
+    }
+    if (message.tunnelLowerRejectionLimit !== undefined) {
+      result += `  Limite Inferior de Rejeição: ${message.tunnelLowerRejectionLimit}\n`;
+    }
+    if (message.tunnelUpperStaticLimit !== undefined) {
+      result += `  Limite Superior Estático: ${message.tunnelUpperStaticLimit}\n`;
+    }
+    if (message.tunnelLowerStaticLimit !== undefined) {
+      result += `  Limite Inferior Estático: ${message.tunnelLowerStaticLimit}\n`;
+    }
+  }
+
+  // Add section for historical price ranges
+  if (
+    message.weekLowPrice !== undefined ||
+    message.weekHighPrice !== undefined ||
+    message.monthLowPrice !== undefined ||
+    message.monthHighPrice !== undefined ||
+    message.yearLowPrice !== undefined ||
+    message.yearHighPrice !== undefined
+  ) {
+    result += "\nFaixas de Preço Histórico:\n";
+
+    if (message.weekLowPrice !== undefined && message.weekHighPrice !== undefined) {
+      result += `  Semana: ${message.weekLowPrice} - ${message.weekHighPrice}\n`;
+    } else {
+      if (message.weekLowPrice !== undefined) {
+        result += `  Mínima da Semana: ${message.weekLowPrice}\n`;
+      }
+      if (message.weekHighPrice !== undefined) {
+        result += `  Máxima da Semana: ${message.weekHighPrice}\n`;
+      }
+    }
+
+    if (message.monthLowPrice !== undefined && message.monthHighPrice !== undefined) {
+      result += `  Mês: ${message.monthLowPrice} - ${message.monthHighPrice}\n`;
+    } else {
+      if (message.monthLowPrice !== undefined) {
+        result += `  Mínima do Mês: ${message.monthLowPrice}\n`;
+      }
+      if (message.monthHighPrice !== undefined) {
+        result += `  Máxima do Mês: ${message.monthHighPrice}\n`;
+      }
+    }
+
+    if (message.yearLowPrice !== undefined && message.yearHighPrice !== undefined) {
+      result += `  Ano: ${message.yearLowPrice} - ${message.yearHighPrice}\n`;
+    } else {
+      if (message.yearLowPrice !== undefined) {
+        result += `  Mínima do Ano: ${message.yearLowPrice}\n`;
+      }
+      if (message.yearHighPrice !== undefined) {
+        result += `  Máxima do Ano: ${message.yearHighPrice}\n`;
+      }
+    }
+  }
+
+  // Add expiration date if available
+  if (message.expirationFullDate !== undefined) {
+    const dateStr = message.expirationFullDate.toString();
+    if (dateStr.length === 8) {
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      result += `Data de Expiração: ${day}/${month}/${year}\n`;
+    } else {
+      result += `Data de Expiração: ${message.expirationFullDate}\n`;
+    }
+  }
+
+  // Add variation and diff from previous day adjustment
+  if (message.variationUsingPreviousDayAdjustment !== undefined) {
+    result += `Variação (Ajuste Anterior): ${(message.variationUsingPreviousDayAdjustment * 100).toFixed(2)}%\n`;
+  }
+
+  if (message.diffFromPreviousDayAdjustment !== undefined) {
+    result += `Diferença do Ajuste Anterior: ${message.diffFromPreviousDayAdjustment}\n`;
   }
 
   // Add a section for other fields that might be important but not formatted above

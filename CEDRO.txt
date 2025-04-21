@@ -17,22 +17,3 @@ Tipos de campos não incluídos na documentação:
 159 Mínima do ano Double
 160 Máxima do ano Double
 
-Os campos abaixo são exclusivos do mercado Tesouro Direto:
-
-200 Preço unitário Float
-201 Valor da taxa (Rentabilidade) Float
-202 Valor mínimo de aplicação Float
-203 Mercado Inteiro
-204 Código do titulo  String
-205 Código do tipo Inteiro
-206 Nome do tipo String
-207 Selic String
-208 Data de emissão Data (YYYYMMDD)
-209 Negocio Inteiro
-210 Valor base Float
-211 Valor da taxa de compra Float
-212 Valor da taxa de venda Float
-213 Código indexador Inteiro
-214 Nome indexador String
-215 Nome do titulo String
-
