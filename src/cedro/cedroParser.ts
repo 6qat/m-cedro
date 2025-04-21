@@ -26,22 +26,104 @@ export interface CedroMessage {
   lowPrice?: number; // 12: Menor preço do dia
   previousClosePrice?: number; // 13: Preço de fechamento do dia anterior
   openPrice?: number; // 14: Preço de abertura
+  bestBidTime?: string; // 15: Horário da melhor oferta de compra
+  bestAskTime?: string; // 16: Horário da melhor oferta de venda
+  cumulativeBidVolume?: number; // 17: Volume acumulado de ofertas de compra
+  cumulativeAskVolume?: number; // 18: Volume acumulado de ofertas de venda
+  bestBidVolume?: number; // 19: Volume da melhor oferta de compra
+  bestAskVolume?: number; // 20: Volume da melhor oferta de venda
   variation?: number; // 21: Variação
+  lastWeekClosePrice?: number; // 36: Preço de fechamento da semana anterior
+  lastMonthClosePrice?: number; // 37: Preço de fechamento do mês anterior
+  lastYearClosePrice?: number; // 38: Preço de fechamento do ano anterior
+  previousDayOpenPrice?: number; // 39: Preço de abertura do dia anterior
+  previousDayHighPrice?: number; // 40: Maior preço do dia anterior
+  previousDayLowPrice?: number; // 41: Menor preço do dia anterior
   average?: number; // 42: Média
+  vhDaily?: number; // 43: VH Diário
   marketCode?: number; // 44: Código do Mercado
   assetTypeCode?: number; // 45: Código do tipo do ativo
-  assetPhase?: string; // 88: Fase do grupo do ativo
+  standardLot?: number; // 46: Lote padrão
   assetDescription?: string; // 47: Descrição do ativo
+  classificationName?: string; // 48: Nome da classificação
+  quotationForm?: string; // 49: Forma de cotação
+  intradayDate?: string; // 50: Data intraday
+  lastTradeDate?: string; // 51/54: Data do último negócio
+  shortAssetDescription?: string; // 52: Descrição curta do ativo
+  canceledTradeId?: string; // 53: ID do negócio cancelado
+  unattendedOffersDirection?: string; // 56: Direção de ofertas não atendidas
+  unattendedQuantity?: number; // 57: Quantidade não atendida
+  scheduledOpeningTime?: string; // 58: Horário de abertura programado
+  rescheduledOpeningTime?: string; // 59: Horário de abertura reprogramado
+  bestBidBrokerCode?: string; // 60: Código da corretora da melhor oferta de compra
+  bestAskBrokerCode?: string; // 61: Código da corretora da melhor oferta de venda
+  buyBrokerCode?: string; // 62: Código da corretora compradora
+  sellBrokerCode?: string; // 63: Código da corretora vendedora
+  expirationDate?: string; // 64: Data de expiração
+  expired?: boolean; // 65: Expirado
+  totalSecurities?: number; // 66: Total de títulos
+  instrumentStatus?: string; // 67: Status do instrumento
+  optionType?: string; // 72: Tipo de opção
+  optionDirection?: string; // 74: Direção da opção
+  parentSymbol?: string; // 81: Símbolo pai
+  theoreticalOpenPrice?: number; // 82: Preço teórico de abertura
+  theoreticalQuantity?: number; // 83: Quantidade teórica
+  assetStatus?: string; // 84: Status do ativo
+  strikePrice?: number; // 85: Preço de exercício
+  priceDiff?: number; // 86: Diferença de preço
+  previousDate?: string; // 87: Data anterior
+  assetPhase?: string; // 88: Fase do grupo do ativo
+  previousDayAverage?: number; // 89: Média do dia anterior
+  marginInterval?: number; // 90: Intervalo de margem
+  averageVolume20Days?: number; // 94: Volume médio de 20 dias
+  marketCapitalization?: number; // 95: Capitalização de mercado
+  marketType?: string; // 96: Tipo de mercado
+  weekVariation?: number; // 97: Variação da semana
+  monthVariation?: number; // 98: Variação do mês
+  yearVariation?: number; // 99: Variação do ano
   openInterest?: number; // 100: Quantidade de contratos abertos
-  tickDirection?: string; // 106: TickDirection (BMF FIX)
+  businessDaysToExpiration?: number; // 101: Dias úteis para expiração
+  daysToExpiration?: number; // 102: Dias para expiração
+  dayAdjustment?: number; // 103: Ajuste do dia
+  previousDayAdjustment?: number; // 104: Ajuste do dia anterior
   securityId?: string; // 105: SecurityId (BMF FIX)
+  tickDirection?: string; // 106: TickDirection (BMF FIX)
+  tunnelUpperLimit?: number; // 107: Limite superior do túnel
+  tunnelLowerLimit?: number; // 108: Limite inferior do túnel
+  tradingPhase?: string; // 109: Fase de negociação
+  tickSize?: number; // 110: Tamanho do tick
+  minTradingVolume?: number; // 111: Volume mínimo de negociação
+  minPriceIncrement?: number; // 112: Incremento mínimo de preço
+  minOrderQuantity?: number; // 113: Quantidade mínima de ordem
+  maxOrderQuantity?: number; // 114: Quantidade máxima de ordem
+  instrumentId?: string; // 115: ID do instrumento
   currency?: string; // 116: Moeda utilizada no preço
   securityType?: string; // 117: SecurityType
   tradingCode?: string; // 118: Código de negociação do instrumento
+  associatedProduct?: string; // 119: Produto associado
+  expirationYearMonth?: string; // 120: Ano e mês de expiração
+  optionStrikePrice?: number; // 121: Preço de exercício da opção
+  optionStrikeCurrency?: string; // 122: Moeda do preço de exercício da opção
+  contractMultiplier?: number; // 123: Multiplicador do contrato
+  priceTypeCode?: string; // 124: Código do tipo de preço
+  tradingEndTime?: string; // 125: Horário de término da negociação
+  assetGroup?: string; // 126: Grupo do ativo
+  currentRateAdjustment?: number; // 127: Ajuste de taxa atual
+  previousRateAdjustment?: number; // 128: Ajuste de taxa anterior
+  currentRateAdjustmentDate?: string; // 129: Data do ajuste de taxa atual
+  withdrawalsUntilExpiration?: number; // 130: Retiradas até a expiração
   hourVolumeVariation?: number; // 134: Variação do volume da hora
   dayVolumeVariation?: number; // 135: Variação do volume até a hora
+  sectorCode?: string; // 136: Código do setor
+  subsectorCode?: string; // 137: Código do subsetor
+  segmentCode?: string; // 138: Código do segmento
+  currentRateAdjustmentType?: string; // 139: Tipo de ajuste de taxa atual
+  referencePrice?: number; // 140: Preço de referência
+  referencePriceDate?: string; // 141: Data do preço de referência
   lastModificationTimeMs?: string; // 142: Horário da última modificação (HHMMSSmmm)
   lastTradeTimeMs?: string; // 143: Horário do último negócio (HHMMSSmmm)
+  bestBidTimeMs?: string; // 144: Horário da melhor oferta de compra (HHMMSSmmm)
+  bestAskTimeMs?: string; // 145: Horário da melhor oferta de venda (HHMMSSmmm)
   variationUsingPreviousDayAdjustment?: number; // 146: Variação utilizando o ajuste do dia anterior
   diffFromPreviousDayAdjustment?: number; // 147: Diff (Preço Atual - Ajuste do dia anterior)
   tunnelUpperAuctionLimit?: number; // 148: Tunnel Upper Auction Limit
@@ -58,8 +140,26 @@ export interface CedroMessage {
   yearLowPrice?: number; // 159: Mínima do ano
   yearHighPrice?: number; // 160: Máxima do ano
 
-  // Add other fields as needed
-  [key: string]: string | number | Record<number, string | number> | undefined;
+  // Tesouro Direto fields
+  unitPrice?: number; // 200: Preço unitário
+  rateValue?: number; // 201: Valor da taxa
+  minApplicationValue?: number; // 202: Valor mínimo de aplicação
+  market?: string; // 203: Mercado
+  titleCode?: string; // 204: Código do título
+  typeCode?: string; // 205: Código do tipo
+  typeName?: string; // 206: Nome do tipo
+  selic?: number; // 207: Selic
+  issueDate?: string; // 208: Data de emissão
+  trade?: boolean; // 209: Negociação
+  baseValue?: number; // 210: Valor base
+  buyRateValue?: number; // 211: Valor da taxa de compra
+  sellRateValue?: number; // 212: Valor da taxa de venda
+  indexerCode?: string; // 213: Código do indexador
+  indexerName?: string; // 214: Nome do indexador
+  titleName?: string; // 215: Nome do título
+
+  // This catch-all property allows for any additional fields that might be added in the future
+  [key: string]: string | number | boolean | Record<number, string | number> | undefined;
 }
 
 // Known field mappings based on the provided documentation
