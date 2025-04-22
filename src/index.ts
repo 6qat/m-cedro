@@ -5,12 +5,13 @@ import { Option } from "effect";
 import Ably from "ably";
 
 // Configuration interface
-interface ConnectionConfig {
+export interface ConnectionConfig {
   host: string;
   port: number;
   magicToken: string;
   username: string;
   password: string;
+  tickers?: string[];
 }
 
 // Define a minimal interface for the socket

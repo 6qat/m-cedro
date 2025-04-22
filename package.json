@@ -19,7 +19,8 @@
     "dev:convex": "convex dev",
     "dev:server": "bun run index.ts",
     "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\"",
-    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile out ./src/index.ts"
+    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile bin/out ./src/index.ts",
+    "build:dump": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile bin/dump ./src/dump.ts"
   },
   "dependencies": {
     "@elysiajs/swagger": "^1.2.2",
