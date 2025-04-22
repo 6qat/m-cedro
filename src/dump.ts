@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ConnectionConfig } from ".";
-import { Effect, Scope, Console, pipe } from "effect";
+import { Effect, Scope, Console, pipe, Duration } from "effect";
 
 /**
  * CedroDumper class for handling data dumping functionality
@@ -257,89 +257,6 @@ const config: ConnectionConfig = {
   tickers: ["WINM25", "WDOK25"],
 };
 
-async function main(): Promise<void> {
-  console.log("Starting Cedro Dump");
-
-  // Add signal handler for graceful shutdown
-  let socket: { end: () => void; write: (data: string) => void } | null = null;
-
-  // Handle SIGINT (Ctrl+C) and SIGTERM
-  const handleSignal = (signal: string) => {
-    console.log(`\nReceived ${signal}, closing connection and dump file...`);
-    if (socket) {
-      try {
-        socket.end();
-      } catch (error) {
-        console.error("Error closing socket:", error);
-      }
-    }
-    closeDump();
-    console.log("Dump file closed successfully. Exiting.");
-    process.exit(0);
-  };
-
-  // Register signal handlers
-  process.on("SIGINT", () => handleSignal("SIGINT"));
-  process.on("SIGTERM", () => handleSignal("SIGTERM"));
-
-  const sock = await Bun.connect({
-    hostname: config.host,
-    port: config.port,
-    socket: {
-      open: async (s) => {
-        socket = s;
-        startDump();
-        socket.write(`${config.magicToken}\n`);
-        socket.write(`${config.username}\n`);
-        socket.write(`${config.password}\n`);
-
-        // Wait for 1.5 second after sending password
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        for (const ticker of config.tickers || []) {
-          socket.write(`sqt ${ticker}\n`);
-        }
-      },
-      data: async (s, data) => {
-        // Modify the Buffer data directly before converting to string
-        const modifiedData = Buffer.from(data);
-
-        // Replace \r and \n in the buffer (13 is \r, 10 is \n in ASCII)
-        for (let i = 0; i < modifiedData.length; i++) {
-          if (modifiedData[i] === 13) {
-            // \r
-            modifiedData[i] = 35; // # character in ASCII
-          }
-          if (modifiedData[i] === 10) {
-            // \n
-            modifiedData[i] = 64; // @ character in ASCII
-          }
-        }
-
-        // Convert to string after replacement
-        const message = modifiedData.toString();
-
-        // Log the modified message
-        console.log(message);
-
-        // Save original message to file (using the original data)
-        dumpMessage(message);
-      },
-      close: async (s) => {
-        console.log("Connection closed by server");
-        closeDump();
-      },
-      error: async (s, error) => {
-        console.error("Connection error:", error.message);
-        closeDump();
-        process.exit(1);
-      },
-      drain: () => {},
-    },
-  });
-  console.log(`>>> TCP Connection established: ${sock.remoteAddress}:${sock.remotePort}`);
-}
-
 const socketResource = Effect.acquireRelease(
   Effect.tryPromise(async () => {
     let resolveClose: () => void;
@@ -355,58 +272,71 @@ const socketResource = Effect.acquireRelease(
       socket: {
         data(socket, data) {
           // Handle incoming data (e.g., log it)
-          console.log("Received:", data.toString());
-          dumpMessage(Buffer.from(data).toString());
+          const modifiedData = Buffer.from(data);
+
+          // Replace \r and \n in the buffer (13 is \r, 10 is \n in ASCII)
+          for (let i = 0; i < modifiedData.length; i++) {
+            if (modifiedData[i] === 13) {
+              // \r
+              modifiedData[i] = 35; // # character in ASCII
+            }
+            if (modifiedData[i] === 10) {
+              // \n
+              modifiedData[i] = 64; // @ character in ASCII
+            }
+          }
+
+          // Convert to string after replacement
+          const message = modifiedData.toString();
+
+          console.log(message);
+          dumpMessage(message);
         },
         open: async (socket) => {
-          try {
-            console.log("Connected");
-            startDump();
-            socket.write(`${config.magicToken}\n`);
-            socket.write(`${config.username}\n`);
-            socket.write(`${config.password}\n`);
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-
-            for (const ticker of config.tickers || []) {
-              socket.write(`sqt ${ticker}\n`);
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            throw new Error("***** FALHOU *****");
-          } catch (error) {
-            // console.error(`Error opening socket: ${error.message}`);
-            rejectClose(error);
-          }
+          Effect.runPromise(
+            Effect.gen(function* () {
+              yield* Console.log("Connected");
+              startDump();
+              socket.write(`${config.magicToken}\n`);
+              socket.write(`${config.username}\n`);
+              socket.write(`${config.password}\n`);
+              yield* Effect.sleep(Duration.millis(1500));
+              for (const ticker of config.tickers || []) {
+                socket.write(`sqt ${ticker}\n`);
+              }
+            }).pipe(
+              Effect.catchAll((error) => {
+                rejectClose(error);
+                return Effect.succeed("");
+              })
+            )
+          );
         },
         close(socket) {
           console.log("Connection closed");
-          closeDump();
           resolveClose(); // Signal that the connection has closed
         },
         error(socket, error) {
-          console.error("Error:", error);
-          closeDump();
           rejectClose(error);
         },
       },
     }).then((socket) => ({ socket, closePromise }));
   }),
-  ({ socket }) => Effect.sync(() => socket.end())
+  ({ socket }) =>
+    Effect.sync(() => {
+      console.log("Finalizing socket...");
+      socket.end();
+      closeDump();
+    })
 );
 
 const program = Effect.gen(function* () {
   const { closePromise } = yield* socketResource;
-  // yield* Effect.sleep(3500);
-  // yield* Effect.fail(new Error("***** FALHOU *****"));
-  // Wait for the connection to close
-  const e = yield* Effect.tryPromise(() => closePromise);
+  yield* Effect.tryPromise(() => closePromise);
 });
 
 // Use Bun's module detection instead of Node.js's
 if (import.meta.main) {
-  // main().catch((err) => {
-  //   console.error("Error in main:", err);
-  //   process.exit(1);
-  // });
   Effect.runPromise(
     Effect.scoped(
       program.pipe(
@@ -419,3 +349,15 @@ if (import.meta.main) {
     )
   );
 }
+
+// Handle SIGINT (Ctrl+C) and SIGTERM
+const handleSignal = (signal: string) => {
+  console.log(`\nReceived ${signal}, closing connection and dump file...`);
+  closeDump();
+  console.log("Dump file closed successfully. Exiting.");
+  process.exit(0);
+};
+
+// Register signal handlers
+process.on("SIGINT", () => handleSignal("SIGINT"));
+process.on("SIGTERM", () => handleSignal("SIGTERM"));
