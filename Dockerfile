@@ -1,5 +1,5 @@
 # docker build -t ceschiatti/m-cedro:latest .
-# docker run --rm --name m-cedro ceschiatti/m-cedro
+# docker run --restart always -v $(pwd)/dumps:/app/dumps --rm --name m-cedro ceschiatti/m-cedro
 # docker exec -it m-cedro bash
 
 FROM oven/bun:latest

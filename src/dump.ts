@@ -252,7 +252,7 @@ const config: ConnectionConfig = {
   magicToken: "fake-token", // Replace with your magic token
   username: "00000", // Replace with your username
   password: "00000", // Replace with your password
-  tickers: ["WINM25"],
+  tickers: ["WINM25", "WDOK25"],
 };
 
 async function main(): Promise<void> {
