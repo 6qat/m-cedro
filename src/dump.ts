@@ -74,7 +74,7 @@ export class CedroDumper {
 
     try {
       // Write to file
-      this.fileStream.write(`${message}\n`);
+      this.fileStream.write(`${message}`);
 
       this.messageCount++;
       return true;
