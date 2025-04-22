@@ -74,7 +74,7 @@ export class CedroDumper {
 
     try {
       // Write to file
-      this.fileStream.write(`${message}`);
+      this.fileStream.write(`${message !== "SYN" ? message : "\nSYN"}`);
 
       this.messageCount++;
       return true;
