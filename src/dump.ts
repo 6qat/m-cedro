@@ -74,7 +74,7 @@ export class CedroDumper {
 
     try {
       // Write to file
-      this.fileStream.write(`${message !== "SYN" ? message : "\nSYN"}`);
+      this.fileStream.write(`${message}`);
 
       this.messageCount++;
       return true;
@@ -296,9 +296,27 @@ async function main(): Promise<void> {
         }
       },
       data: async (s, data) => {
-        const message = Buffer.from(data).toString().trim();
+        // Modify the Buffer data directly before converting to string
+        const modifiedData = Buffer.from(data);
+        
+        // Replace \r and \n in the buffer (13 is \r, 10 is \n in ASCII)
+        for (let i = 0; i < modifiedData.length; i++) {
+          if (modifiedData[i] === 13) { // \r
+            modifiedData[i] = 35; // # character in ASCII
+          }
+          if (modifiedData[i] === 10) { // \n
+            modifiedData[i] = 64; // @ character in ASCII
+          }
+        }
+        
+        // Convert to string after replacement
+        const message = modifiedData.toString();
+        
+        // Log the modified message
         console.log(message);
-        dumpMessage(message);
+        
+        // Save original message to file (using the original data)
+        dumpMessage(Buffer.from(data).toString());
       },
       close: async (s) => {
         console.log("Connection closed by server");
