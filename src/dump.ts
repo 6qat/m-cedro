@@ -343,8 +343,10 @@ async function main(): Promise<void> {
 const socketResource = Effect.acquireRelease(
   Effect.tryPromise(async () => {
     let resolveClose: () => void;
-    const closePromise = new Promise<void>((resolve) => {
+    let rejectClose: (err: unknown) => void;
+    const closePromise = new Promise<void>((resolve, reject) => {
       resolveClose = resolve;
+      rejectClose = reject;
     });
 
     return Bun.connect({
@@ -357,15 +359,22 @@ const socketResource = Effect.acquireRelease(
           dumpMessage(Buffer.from(data).toString());
         },
         open: async (socket) => {
-          console.log("Connected");
-          startDump();
-          socket.write(`${config.magicToken}\n`);
-          socket.write(`${config.username}\n`);
-          socket.write(`${config.password}\n`);
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          try {
+            console.log("Connected");
+            startDump();
+            socket.write(`${config.magicToken}\n`);
+            socket.write(`${config.username}\n`);
+            socket.write(`${config.password}\n`);
+            await new Promise((resolve) => setTimeout(resolve, 1500));
 
-          for (const ticker of config.tickers || []) {
-            socket.write(`sqt ${ticker}\n`);
+            for (const ticker of config.tickers || []) {
+              socket.write(`sqt ${ticker}\n`);
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            throw new Error("***** FALHOU *****");
+          } catch (error) {
+            // console.error(`Error opening socket: ${error.message}`);
+            rejectClose(error);
           }
         },
         close(socket) {
@@ -376,7 +385,7 @@ const socketResource = Effect.acquireRelease(
         error(socket, error) {
           console.error("Error:", error);
           closeDump();
-          // throw error;
+          rejectClose(error);
         },
       },
     }).then((socket) => ({ socket, closePromise }));
@@ -385,9 +394,11 @@ const socketResource = Effect.acquireRelease(
 );
 
 const program = Effect.gen(function* () {
-  const { socket, closePromise } = yield* socketResource;
+  const { closePromise } = yield* socketResource;
+  // yield* Effect.sleep(3500);
+  // yield* Effect.fail(new Error("***** FALHOU *****"));
   // Wait for the connection to close
-  yield* Effect.promise(() => closePromise);
+  const e = yield* Effect.tryPromise(() => closePromise);
 });
 
 // Use Bun's module detection instead of Node.js's
@@ -396,8 +407,15 @@ if (import.meta.main) {
   //   console.error("Error in main:", err);
   //   process.exit(1);
   // });
-  const scope = Scope.make();
-  Effect.runPromise(Effect.scoped(program)).catch((error) => {
-    console.error("Program failed:", error);
-  });
+  Effect.runPromise(
+    Effect.scoped(
+      program.pipe(
+        Effect.catchAll((error) => {
+          // console.log(error);
+          console.log("Recovered from error:", error);
+          return Effect.succeed(`Recovering from ${error}`);
+        })
+      )
+    )
+  );
 }
