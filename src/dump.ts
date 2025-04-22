@@ -105,6 +105,7 @@ export class CedroDumper {
       this.fileStream = null;
       console.log(`Closed dump file: ${this.currentDumpFile}`);
       this.currentDumpFile = null;
+      process.exit(1);
     }
   }
 
