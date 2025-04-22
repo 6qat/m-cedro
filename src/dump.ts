@@ -298,25 +298,27 @@ async function main(): Promise<void> {
       data: async (s, data) => {
         // Modify the Buffer data directly before converting to string
         const modifiedData = Buffer.from(data);
-        
+
         // Replace \r and \n in the buffer (13 is \r, 10 is \n in ASCII)
         for (let i = 0; i < modifiedData.length; i++) {
-          if (modifiedData[i] === 13) { // \r
+          if (modifiedData[i] === 13) {
+            // \r
             modifiedData[i] = 35; // # character in ASCII
           }
-          if (modifiedData[i] === 10) { // \n
+          if (modifiedData[i] === 10) {
+            // \n
             modifiedData[i] = 64; // @ character in ASCII
           }
         }
-        
+
         // Convert to string after replacement
         const message = modifiedData.toString();
-        
+
         // Log the modified message
         console.log(message);
-        
+
         // Save original message to file (using the original data)
-        dumpMessage(Buffer.from(data).toString());
+        dumpMessage(message);
       },
       close: async (s) => {
         console.log("Connection closed by server");
