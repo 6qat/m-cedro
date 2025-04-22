@@ -251,7 +251,7 @@ const config: ConnectionConfig = {
   host: "datafeedcd3.cedrotech.com", // Replace with your host
   port: 81, // Replace with your port
   magicToken: "fake-token", // Replace with your magic token
-  username: "00000", // Replace with your username
+  username: "20868", // Replace with your username
   password: "00000", // Replace with your password
   tickers: ["WINM25", "WDOK25"],
 };
@@ -291,6 +291,10 @@ async function main(): Promise<void> {
         socket.write(`${config.magicToken}\n`);
         socket.write(`${config.username}\n`);
         socket.write(`${config.password}\n`);
+
+        // Wait for 1.5 second after sending password
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
         for (const ticker of config.tickers || []) {
           socket.write(`sqt ${ticker}\n`);
         }
