@@ -257,11 +257,35 @@ const config: ConnectionConfig = {
 
 async function main(): Promise<void> {
   console.log("Starting Cedro Dump");
+
+  // Add signal handler for graceful shutdown
+  let socket: { end: () => void; write: (data: string) => void } | null = null;
+
+  // Handle SIGINT (Ctrl+C) and SIGTERM
+  const handleSignal = (signal: string) => {
+    console.log(`\nReceived ${signal}, closing connection and dump file...`);
+    if (socket) {
+      try {
+        socket.end();
+      } catch (error) {
+        console.error("Error closing socket:", error);
+      }
+    }
+    closeDump();
+    console.log("Dump file closed successfully. Exiting.");
+    process.exit(0);
+  };
+
+  // Register signal handlers
+  process.on("SIGINT", () => handleSignal("SIGINT"));
+  process.on("SIGTERM", () => handleSignal("SIGTERM"));
+
   await Bun.connect({
     hostname: config.host,
     port: config.port,
     socket: {
-      open: async (socket) => {
+      open: async (s) => {
+        socket = s;
         startDump();
         socket.write(`${config.magicToken}\n`);
         socket.write(`${config.username}\n`);
@@ -270,17 +294,19 @@ async function main(): Promise<void> {
           socket.write(`sqt ${ticker}\n`);
         }
       },
-      data: async (socket, data) => {
+      data: async (s, data) => {
         const message = Buffer.from(data).toString().trim();
         console.log(message);
         dumpMessage(message);
       },
-      close: async (socket) => {
+      close: async (s) => {
+        console.log("Connection closed by server");
         closeDump();
       },
-      error: async (socket, error) => {
+      error: async (s, error) => {
+        console.error("Connection error:", error.message);
         closeDump();
-        throw error;
+        process.exit(1);
       },
       drain: () => {},
     },

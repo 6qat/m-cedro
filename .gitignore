@@ -39,3 +39,4 @@ package-lock.json
 trades-202*
 bin/
 dumps/
+build/
