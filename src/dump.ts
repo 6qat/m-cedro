@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ConnectionConfig } from ".";
+import { Effect, Scope, Console, pipe } from "effect";
 
 /**
  * CedroDumper class for handling data dumping functionality
@@ -251,7 +252,7 @@ const config: ConnectionConfig = {
   host: "datafeedcd3.cedrotech.com", // Replace with your host
   port: 81, // Replace with your port
   magicToken: "fake-token", // Replace with your magic token
-  username: "20868", // Replace with your username
+  username: "00000", // Replace with your username
   password: "00000", // Replace with your password
   tickers: ["WINM25", "WDOK25"],
 };
@@ -281,7 +282,7 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => handleSignal("SIGINT"));
   process.on("SIGTERM", () => handleSignal("SIGTERM"));
 
-  await Bun.connect({
+  const sock = await Bun.connect({
     hostname: config.host,
     port: config.port,
     socket: {
@@ -336,12 +337,67 @@ async function main(): Promise<void> {
       drain: () => {},
     },
   });
+  console.log(`>>> TCP Connection established: ${sock.remoteAddress}:${sock.remotePort}`);
 }
+
+const socketResource = Effect.acquireRelease(
+  Effect.tryPromise(async () => {
+    let resolveClose: () => void;
+    const closePromise = new Promise<void>((resolve) => {
+      resolveClose = resolve;
+    });
+
+    return Bun.connect({
+      hostname: config.host,
+      port: config.port,
+      socket: {
+        data(socket, data) {
+          // Handle incoming data (e.g., log it)
+          console.log("Received:", data.toString());
+          dumpMessage(Buffer.from(data).toString());
+        },
+        open: async (socket) => {
+          console.log("Connected");
+          startDump();
+          socket.write(`${config.magicToken}\n`);
+          socket.write(`${config.username}\n`);
+          socket.write(`${config.password}\n`);
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+
+          for (const ticker of config.tickers || []) {
+            socket.write(`sqt ${ticker}\n`);
+          }
+        },
+        close(socket) {
+          console.log("Connection closed");
+          closeDump();
+          resolveClose(); // Signal that the connection has closed
+        },
+        error(socket, error) {
+          console.error("Error:", error);
+          closeDump();
+          // throw error;
+        },
+      },
+    }).then((socket) => ({ socket, closePromise }));
+  }),
+  ({ socket }) => Effect.sync(() => socket.end())
+);
+
+const program = Effect.gen(function* () {
+  const { socket, closePromise } = yield* socketResource;
+  // Wait for the connection to close
+  yield* Effect.promise(() => closePromise);
+});
 
 // Use Bun's module detection instead of Node.js's
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error("Error in main:", err);
-    process.exit(1);
+  // main().catch((err) => {
+  //   console.error("Error in main:", err);
+  //   process.exit(1);
+  // });
+  const scope = Scope.make();
+  Effect.runPromise(Effect.scoped(program)).catch((error) => {
+    console.error("Program failed:", error);
   });
 }
