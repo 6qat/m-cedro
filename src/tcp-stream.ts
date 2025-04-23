@@ -1,4 +1,6 @@
 import { Effect, Stream, Queue, pipe, Console, Fiber } from "effect";
+import readline from "node:readline";
+import type { ConnectionConfig } from ".";
 
 const createTcpStream = (options: {
   host: string;
@@ -15,7 +17,10 @@ const createTcpStream = (options: {
         socket: {
           data(socket, data) {
             // When data is received, offer it to the queue
-            Queue.unsafeOffer(queue, Effect.succeed(Buffer.from(data).toString()));
+            Queue.unsafeOffer(
+              queue,
+              Effect.succeed(Buffer.from(data).toString())
+            );
           },
           open(socket) {
             // When the connection is opened, log it
@@ -50,6 +55,7 @@ const createTcpStream = (options: {
 };
 
 // Usage example
+
 const program1 = pipe(
   createTcpStream({ host: "datafeedcd3.cedrotech.com", port: 81 }),
   Stream.tap((e) => Console.log(Effect.runSync(e))),
@@ -62,7 +68,14 @@ const program1 = pipe(
 // =========================================================================
 // TCP Connection with Write support
 // =========================================================================
-
+const config: ConnectionConfig = {
+  host: "datafeedcd3.cedrotech.com", // Replace with your host
+  port: 81, // Replace with your port
+  magicToken: "fake-token", // Replace with your magic token
+  username: "00000", // Replace with your username
+  password: "00000", // Replace with your password
+  tickers: ["WINM25", "WDOK25"],
+};
 interface TcpConnection {
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
@@ -140,25 +153,53 @@ const createTcpConnection = (options: {
 // Usage example
 const program = Effect.gen(function* () {
   const connection = yield* createTcpConnection({
-    host: "datafeedcd3.cedrotech.com",
-    port: 81,
+    host: config.host,
+    port: config.port,
   });
 
-  // Start reading
+  // Send credentials immediately after connection is established
+  yield* connection.send(new TextEncoder().encode(`${config.magicToken}\n`));
+  yield* connection.send(new TextEncoder().encode(`${config.username}\n`));
+  yield* connection.send(new TextEncoder().encode(`${config.password}\n`));
+
+  // Send SQT command for each ticker
+  for (const ticker of config.tickers || []) {
+    yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
+  }
+
+  // Start reading from the TCP connection
   const readerFiber = yield* pipe(
     connection.stream,
-    Stream.tap((data) => Effect.log(`Received: ${new TextDecoder().decode(data)}`)),
+    Stream.tap((data) =>
+      Console.log(`Received: ${new TextDecoder().decode(data)}`)
+    ),
     Stream.runDrain,
     Effect.fork
   );
 
-  // Send some data
-  yield* connection.send(new TextEncoder().encode("Hello Server!"));
-  yield* Effect.sleep("1 seconds");
-  yield* connection.send(new TextEncoder().encode("Another message"));
+  // Setup readline interface for stdin
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: false,
+  });
 
-  // Wait and close
-  yield* Effect.sleep("1 seconds");
+  // Wrap readline in an Effect for cleanup
+  yield* Effect.async((resume, signal) => {
+    rl.on("line", (line) => {
+      void Effect.runPromise(
+        connection.send(new TextEncoder().encode(`${line}\n`))
+      );
+    });
+    rl.on("close", () => {
+      resume(Effect.succeed(undefined));
+    });
+    signal.addEventListener("abort", () => {
+      rl.close();
+    });
+  });
+
+  // When stdin closes, clean up TCP connection
   yield* connection.close;
   yield* Fiber.join(readerFiber);
 });
