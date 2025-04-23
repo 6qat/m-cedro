@@ -79,6 +79,7 @@ const config: ConnectionConfig = {
 interface TcpConnection {
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
+  readonly sendText: (data: string) => Effect.Effect<void>;
   readonly close: Effect.Effect<void>;
 }
 
@@ -146,6 +147,8 @@ const createTcpConnection = (options: {
     return {
       stream: Stream.fromQueue(incomingQueue).pipe(Stream.ensuring(close)),
       send: (data: Uint8Array) => Queue.offer(outgoingQueue, data),
+      sendText: (data: string) =>
+        Queue.offer(outgoingQueue, new TextEncoder().encode(data)),
       close,
     };
   });
@@ -169,15 +172,15 @@ const program = Effect.gen(function* () {
   );
 
   // Send credentials immediately after connection is established
-  yield* connection.send(new TextEncoder().encode(`${config.magicToken}\n`));
-  yield* connection.send(new TextEncoder().encode(`${config.username}\n`));
-  yield* connection.send(new TextEncoder().encode(`${config.password}\n`));
+  yield* connection.sendText(`${config.magicToken}\n`);
+  yield* connection.sendText(`${config.username}\n`);
+  yield* connection.sendText(`${config.password}\n`);
 
   // Send SQT command for each ticker
   yield* Effect.sleep(Duration.millis(1500));
   if (config.tickers) {
     for (const ticker of config.tickers) {
-      yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
+      yield* connection.sendText(`sqt ${ticker}\n`);
     }
   }
 
