@@ -137,6 +137,7 @@ const createTcpConnection = (options: {
 
     // Cleanup procedure
     const close = Effect.sync(() => {
+      console.log("Closing connection");
       socket.then((s) => s.end());
       Queue.shutdown(incomingQueue);
       Queue.shutdown(outgoingQueue);
@@ -179,6 +180,14 @@ const program = Effect.gen(function* () {
       yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
     }
   }
+
+  // Handle SIGINT (Ctrl+C) and SIGTERM
+  const handleSignal = async () => {
+    await Effect.runPromise(connection.close);
+    process.exit(0);
+  };
+  process.on("SIGINT", handleSignal);
+  process.on("SIGTERM", handleSignal);
 
   // Setup readline interface for stdin
   const rl = readline.createInterface({
