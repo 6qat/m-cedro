@@ -40,3 +40,4 @@ trades-202*
 bin/
 dumps/
 build/
+credentials.ts

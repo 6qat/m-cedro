@@ -58,3 +58,81 @@ const program = pipe(
 );
 
 Effect.runPromise(program);
+
+// =========================================================================
+// TCP Connection with Write support
+// =========================================================================
+
+interface TcpConnection {
+  readonly stream: Stream.Stream<Uint8Array, Error>;
+  readonly send: (data: Uint8Array) => Effect.Effect<void>;
+  readonly close: Effect.Effect<void>;
+}
+
+const createTcpConnection = (options: {
+  host: string;
+  port: number;
+}): Effect.Effect<TcpConnection, Error> => {
+  return Effect.gen(function* (_) {
+    // Create queues for incoming and outgoing data
+    const incomingQueue = yield* _(Queue.unbounded<Uint8Array>());
+    const outgoingQueue = yield* _(Queue.unbounded<Uint8Array>());
+
+    // Create deferred for connection cleanup
+    const socket = Bun.connect({
+      port: options.port,
+      hostname: options.host,
+      socket: {
+        data(_socket, data) {
+          Queue.unsafeOffer(incomingQueue, data);
+        },
+        error(_socket, error) {
+          //Queue.unsafeOffer(incomingQueue, error)
+          Queue.shutdown(outgoingQueue);
+        },
+        end(_socket) {
+          Queue.shutdown(incomingQueue);
+          Queue.shutdown(outgoingQueue);
+        },
+      },
+    });
+
+    // Fiber for writing outgoing data
+    const writerFiber = yield* _(
+      Effect.iterate(undefined, {
+        while: () => true,
+        body: () =>
+          pipe(
+            Queue.take(outgoingQueue),
+            Effect.flatMap((data) =>
+              Effect.try({
+                try: () => {
+                  socket.then((s) => {
+                    const bytesWritten = s.write(data);
+                    if (bytesWritten !== data.length) {
+                      throw new Error("Partial write");
+                    }
+                  });
+                },
+                catch: (error) => new Error(`Write failed: ${error}`),
+              })
+            )
+          ),
+      }),
+      Effect.fork
+    );
+
+    // Cleanup procedure
+    const close = Effect.sync(() => {
+      socket.then((s) => s.end());
+      Queue.shutdown(incomingQueue);
+      Queue.shutdown(outgoingQueue);
+    });
+
+    return {
+      stream: Stream.fromQueue(incomingQueue).pipe(Stream.ensuring(close)),
+      send: (data: Uint8Array) => Queue.offer(outgoingQueue, data),
+      close,
+    };
+  });
+};
