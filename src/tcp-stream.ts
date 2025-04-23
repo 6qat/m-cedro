@@ -92,23 +92,25 @@ const createTcpConnection = (options: {
     const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
 
     // Create deferred for connection cleanup
-    const socket = Bun.connect({
-      port: options.port,
-      hostname: options.host,
-      socket: {
-        data(_socket, data) {
-          Queue.unsafeOffer(incomingQueue, data);
+    const socket = yield* Effect.tryPromise(() =>
+      Bun.connect({
+        port: options.port,
+        hostname: options.host,
+        socket: {
+          data(_socket, data) {
+            Queue.unsafeOffer(incomingQueue, data);
+          },
+          error(_socket, error) {
+            //Queue.unsafeOffer(incomingQueue, error)
+            Queue.shutdown(outgoingQueue);
+          },
+          close(_socket) {
+            Queue.shutdown(incomingQueue);
+            Queue.shutdown(outgoingQueue);
+          },
         },
-        error(_socket, error) {
-          //Queue.unsafeOffer(incomingQueue, error)
-          Queue.shutdown(outgoingQueue);
-        },
-        close(_socket) {
-          Queue.shutdown(incomingQueue);
-          Queue.shutdown(outgoingQueue);
-        },
-      },
-    });
+      })
+    );
 
     // Fiber for writing outgoing data
     const writerFiber = yield* pipe(
@@ -120,12 +122,10 @@ const createTcpConnection = (options: {
             Effect.flatMap((data) =>
               Effect.try({
                 try: () => {
-                  socket.then((s) => {
-                    const bytesWritten = s.write(data);
-                    if (bytesWritten !== data.length) {
-                      throw new Error("Partial write");
-                    }
-                  });
+                  const bytesWritten = socket.write(data);
+                  if (bytesWritten !== data.length) {
+                    throw new Error("Partial write");
+                  }
                 },
                 catch: (error) => new Error(`Write failed: ${error}`),
               })
@@ -138,7 +138,7 @@ const createTcpConnection = (options: {
     // Cleanup procedure
     const close = Effect.sync(() => {
       console.log("Closing connection");
-      socket.then((s) => s.end());
+      socket.end();
       Queue.shutdown(incomingQueue);
       Queue.shutdown(outgoingQueue);
     });
@@ -181,10 +181,19 @@ const program = Effect.gen(function* () {
     }
   }
 
+  const shutdown = async () => {
+    // await Effect.runPromise(connection.close);
+    // process.exit(0);
+
+    // The readline effect loops indefinitely. When we close it,
+    // the program will continue, closing the connection and
+    // joining the readerFiber.
+    rl.close();
+  };
+
   // Handle SIGINT (Ctrl+C) and SIGTERM
   const handleSignal = async () => {
-    await Effect.runPromise(connection.close);
-    process.exit(0);
+    shutdown();
   };
   process.on("SIGINT", handleSignal);
   process.on("SIGTERM", handleSignal);
@@ -199,7 +208,13 @@ const program = Effect.gen(function* () {
   // Wrap readline in an Effect for cleanup
   yield* Effect.async((resume, signal) => {
     rl.on("line", (line) => {
-      Effect.runPromise(connection.send(new TextEncoder().encode(`${line}\n`)));
+      if (line === "quit") {
+        rl.close();
+      } else {
+        Effect.runPromise(
+          connection.send(new TextEncoder().encode(`${line}\n`))
+        );
+      }
     });
     rl.on("close", () => {
       resume(Effect.succeed(undefined));
