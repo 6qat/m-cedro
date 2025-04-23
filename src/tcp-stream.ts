@@ -1,4 +1,4 @@
-import { Effect, Stream, Queue, pipe, Console, Fiber } from "effect";
+import { Effect, Stream, Queue, pipe, Console, Fiber, Duration } from "effect";
 import readline from "node:readline";
 import type { ConnectionConfig } from ".";
 
@@ -157,18 +157,6 @@ const program = Effect.gen(function* () {
     port: config.port,
   });
 
-  // Send credentials immediately after connection is established
-  yield* connection.send(new TextEncoder().encode(`${config.magicToken}\n`));
-  yield* connection.send(new TextEncoder().encode(`${config.username}\n`));
-  yield* connection.send(new TextEncoder().encode(`${config.password}\n`));
-
-  // Send SQT command for each ticker
-  if (config.tickers) {
-    for (const ticker of config.tickers) {
-      yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
-    }
-  }
-
   // Start reading from the TCP connection
   const readerFiber = yield* pipe(
     connection.stream,
@@ -178,6 +166,19 @@ const program = Effect.gen(function* () {
     Stream.runDrain,
     Effect.fork
   );
+
+  // Send credentials immediately after connection is established
+  yield* connection.send(new TextEncoder().encode(`${config.magicToken}\n`));
+  yield* connection.send(new TextEncoder().encode(`${config.username}\n`));
+  yield* connection.send(new TextEncoder().encode(`${config.password}\n`));
+
+  // Send SQT command for each ticker
+  yield* Effect.sleep(Duration.millis(1500));
+  if (config.tickers) {
+    for (const ticker of config.tickers) {
+      yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
+    }
+  }
 
   // Setup readline interface for stdin
   const rl = readline.createInterface({
