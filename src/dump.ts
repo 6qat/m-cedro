@@ -341,7 +341,6 @@ if (import.meta.main) {
     Effect.scoped(
       program.pipe(
         Effect.catchAll((error) => {
-          // console.log(error);
           console.log("Recovered from error:", error);
           return Effect.succeed(`Recovering from ${error}`);
         })
