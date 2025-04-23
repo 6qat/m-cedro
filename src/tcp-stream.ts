@@ -163,8 +163,10 @@ const program = Effect.gen(function* () {
   yield* connection.send(new TextEncoder().encode(`${config.password}\n`));
 
   // Send SQT command for each ticker
-  for (const ticker of config.tickers || []) {
-    yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
+  if (config.tickers) {
+    for (const ticker of config.tickers) {
+      yield* connection.send(new TextEncoder().encode(`sqt ${ticker}\n`));
+    }
   }
 
   // Start reading from the TCP connection
@@ -187,9 +189,7 @@ const program = Effect.gen(function* () {
   // Wrap readline in an Effect for cleanup
   yield* Effect.async((resume, signal) => {
     rl.on("line", (line) => {
-      void Effect.runPromise(
-        connection.send(new TextEncoder().encode(`${line}\n`))
-      );
+      Effect.runPromise(connection.send(new TextEncoder().encode(`${line}\n`)));
     });
     rl.on("close", () => {
       resume(Effect.succeed(undefined));
