@@ -1,4 +1,4 @@
-import { Effect, Stream, Queue, pipe, Console } from "effect";
+import { Effect, Stream, Queue, pipe, Console, Fiber } from "effect";
 
 const createTcpStream = (options: {
   host: string;
@@ -50,14 +50,14 @@ const createTcpStream = (options: {
 };
 
 // Usage example
-const program = pipe(
+const program1 = pipe(
   createTcpStream({ host: "datafeedcd3.cedrotech.com", port: 81 }),
   Stream.tap((e) => Console.log(Effect.runSync(e))),
   Stream.runCollect,
   Effect.flatMap((chunks) => Effect.log(`Received ${chunks.length} chunks`))
 );
 
-Effect.runPromise(program);
+// Effect.runPromise(program1);
 
 // =========================================================================
 // TCP Connection with Write support
@@ -73,10 +73,10 @@ const createTcpConnection = (options: {
   host: string;
   port: number;
 }): Effect.Effect<TcpConnection, Error> => {
-  return Effect.gen(function* (_) {
+  return Effect.gen(function* () {
     // Create queues for incoming and outgoing data
-    const incomingQueue = yield* _(Queue.unbounded<Uint8Array>());
-    const outgoingQueue = yield* _(Queue.unbounded<Uint8Array>());
+    const incomingQueue = yield* Queue.unbounded<Uint8Array>();
+    const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
 
     // Create deferred for connection cleanup
     const socket = Bun.connect({
@@ -90,7 +90,7 @@ const createTcpConnection = (options: {
           //Queue.unsafeOffer(incomingQueue, error)
           Queue.shutdown(outgoingQueue);
         },
-        end(_socket) {
+        close(_socket) {
           Queue.shutdown(incomingQueue);
           Queue.shutdown(outgoingQueue);
         },
@@ -98,7 +98,7 @@ const createTcpConnection = (options: {
     });
 
     // Fiber for writing outgoing data
-    const writerFiber = yield* _(
+    const writerFiber = yield* pipe(
       Effect.iterate(undefined, {
         while: () => true,
         body: () =>
@@ -136,3 +136,31 @@ const createTcpConnection = (options: {
     };
   });
 };
+
+// Usage example
+const program = Effect.gen(function* () {
+  const connection = yield* createTcpConnection({
+    host: "datafeedcd3.cedrotech.com",
+    port: 81,
+  });
+
+  // Start reading
+  const readerFiber = yield* pipe(
+    connection.stream,
+    Stream.tap((data) => Effect.log(`Received: ${new TextDecoder().decode(data)}`)),
+    Stream.runDrain,
+    Effect.fork
+  );
+
+  // Send some data
+  yield* connection.send(new TextEncoder().encode("Hello Server!"));
+  yield* Effect.sleep("1 seconds");
+  yield* connection.send(new TextEncoder().encode("Another message"));
+
+  // Wait and close
+  yield* Effect.sleep("1 seconds");
+  yield* connection.close;
+  yield* Fiber.join(readerFiber);
+});
+
+Effect.runPromise(program);

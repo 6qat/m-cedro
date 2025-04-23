@@ -4,21 +4,21 @@
     "": {
       "name": "bun-tcp",
       "dependencies": {
-        "@elysiajs/swagger": "^1.2.2",
-        "ably": "^2.7.0",
-        "amqplib": "^0.10.7",
-        "convex": "^1.23.0",
-        "effect": "^3.14.11",
-        "elysia": "^1.2.25",
+        "@elysiajs/swagger": "latest",
+        "ably": "latest",
+        "amqplib": "latest",
+        "convex": "latest",
+        "effect": "latest",
+        "elysia": "latest",
       },
       "devDependencies": {
-        "@biomejs/biome": "^1.9.4",
-        "@types/amqplib": "^0.10.7",
-        "@types/bun": "1.2.10",
-        "concurrently": "^9.1.2",
+        "@biomejs/biome": "latest",
+        "@types/amqplib": "latest",
+        "@types/bun": "latest",
+        "concurrently": "latest",
       },
       "peerDependencies": {
-        "typescript": "^5.8.3",
+        "typescript": "latest",
       },
     },
   },
@@ -165,7 +165,7 @@
 
     "defer-to-connect": ["defer-to-connect@2.0.1", "", {}, "sha512-4tvttepXG1VaYGrRibk5EwJd1t4udunSOVMdLSAL6mId1ix438oPwPZMALY41FCijukO1L0twNcGsdzS7dHgDg=="],
 
-    "effect": ["effect@3.14.11", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-PPfiu7QRtmmrgH6VWZp/rY1S8SSLJofx5betRuTPGG868G3f0C7yvPOa6SZPLG5ra2yCd1Vfm7cdeI26ZVGGlA=="],
+    "effect": ["effect@3.14.13", "", { "dependencies": { "@standard-schema/spec": "^1.0.0", "fast-check": "^3.23.1" } }, "sha512-mQgZx8xgzHK86J5O0J5pmMs23U5ylkX/+JkfzTkRjCK0kK4L0PSYTaNAqlJZV6IA5uUIvysK5D+pCqqoXbAQnQ=="],
 
     "elysia": ["elysia@1.2.25", "", { "dependencies": { "@sinclair/typebox": "^0.34.27", "cookie": "^1.0.2", "memoirist": "^0.3.0", "openapi-types": "^12.1.3" }, "peerDependencies": { "typescript": ">= 5.0.0" }, "optionalPeers": ["typescript"] }, "sha512-WsdQpORJvb4uszzeqYT0lg97knw1iBW1NTzJ1Jm57tiHg+DfAotlWXYbjmvQ039ssV0fYELDHinLLoUazZkEHg=="],
 
