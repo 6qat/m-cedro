@@ -1,6 +1,5 @@
 import { Effect, Stream, Queue, Fiber, pipe } from "effect";
-import { WebStandardAdapter } from "elysia/adapter/web-standard";
-
+import { webcrypto } from "node:crypto";
 interface TcpClient {
   readonly id: string;
   readonly stream: Stream.Stream<Uint8Array, Error>;
@@ -45,7 +44,8 @@ const createTcpServer = (options: {
       async fetch(req, server) {
         if (
           server.upgrade(req, {
-            data: { id: Math.random().toString(36).substr(2, 9) },
+            // data: { id: Math.random().toString(36).substr(2, 9) },
+            data: { id: webcrypto.randomUUID() },
           })
         )
           return;
@@ -56,6 +56,7 @@ const createTcpServer = (options: {
         // Connection opened
         open: (ws) => {
           const clientId = ws.data.id;
+          console.log("Client connected: ", clientId);
           // Create client handler fiber
           const fiber = Effect.gen(function* () {
             const incomingQueue = yield* Queue.unbounded<Uint8Array>();
@@ -117,6 +118,7 @@ const createTcpServer = (options: {
 
         // Message handler
         message: (ws, message) => {
+          console.log(message);
           const data =
             message instanceof Buffer
               ? new Uint8Array(message.buffer)
