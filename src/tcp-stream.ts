@@ -13,7 +13,7 @@ const config: ConnectionConfig = {
   password: "00000", // Replace with your password
   tickers: ["WINM25", "WDOK25"],
 };
-interface TcpConnection {
+export interface TcpConnection {
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
   readonly sendText: (data: string) => Effect.Effect<void>;
