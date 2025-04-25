@@ -1,4 +1,5 @@
 import { Effect, Stream, Queue, Fiber, pipe } from "effect";
+import { Console } from "node:console";
 import { webcrypto } from "node:crypto";
 interface TcpClient {
   readonly id: string;
@@ -164,6 +165,7 @@ const program = Effect.gen(function* () {
 
   yield* pipe(
     server.clients,
+    Stream.map((client) => client),
     Stream.tap((client) =>
       Effect.gen(function* () {
         yield* Effect.log(`New client connected: ${client.id}`);
@@ -174,16 +176,17 @@ const program = Effect.gen(function* () {
         // Process client stream
         yield* pipe(
           client.stream,
-          Stream.tap((data) => {
-            const message = new TextDecoder().decode(data);
-            return Effect.gen(function* () {
+          Stream.tap((data) =>
+            Effect.gen(function* () {
+              const message = new TextDecoder().decode(data);
               yield* Effect.log(`From ${client.id}: ${message}`);
               yield* client.sendText(message);
-            });
-          }),
+            })
+          ),
           Stream.runDrain,
+
           Effect.fork
-        );
+        ); // End client stream processing
       })
     ),
     Stream.runDrain,
