@@ -4,6 +4,7 @@ interface TcpClient {
   readonly id: string;
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
+  readonly sendText: (data: string) => Effect.Effect<void>;
 }
 
 interface TcpServer {
@@ -21,9 +22,11 @@ interface WebSocketData {
 
 const createTcpServer = (options: {
   port: number;
+  hostname?: string;
 }): Effect.Effect<TcpServer, Error> => {
   return Effect.gen(function* () {
-    // Queue for new client connections
+    /* Queue for new client connections. It will be transformed into a Stream
+     and will be part of the TcpServer returned */
     const clientsQueue = yield* Queue.unbounded<TcpClient>();
 
     // Map to track active clients
@@ -84,6 +87,8 @@ const createTcpServer = (options: {
           id: clientId,
           stream: Stream.fromQueue(ws.data.incomingQueue),
           send: (data) => Queue.offer(ws.data.outgoingQueue, data),
+          sendText: (data) =>
+            Queue.offer(ws.data.outgoingQueue, new TextEncoder().encode(data)),
         });
       },
 
@@ -109,8 +114,8 @@ const createTcpServer = (options: {
     const server = yield* Effect.try({
       try: () =>
         Bun.serve<WebSocketData, never>({
-          port: 80, //options.port,
-          hostname: "0.0.0.0",
+          port: options.port,
+          hostname: options.hostname || "0.0.0.0",
 
           // Client connection handler
           async fetch(req, server) {
@@ -145,6 +150,7 @@ const createTcpServer = (options: {
       }
     });
 
+    // Returns the TCP server instance
     return {
       clients: Stream.fromQueue(clientsQueue),
       close,
@@ -168,9 +174,13 @@ const program = Effect.gen(function* () {
         // Process client stream
         yield* pipe(
           client.stream,
-          Stream.tap((data) =>
-            Effect.log(`From ${client.id}: ${new TextDecoder().decode(data)}`)
-          ),
+          Stream.tap((data) => {
+            const message = new TextDecoder().decode(data);
+            return Effect.gen(function* () {
+              yield* Effect.log(`From ${client.id}: ${message}`);
+              yield* client.sendText(message);
+            });
+          }),
           Stream.runDrain,
           Effect.fork
         );
