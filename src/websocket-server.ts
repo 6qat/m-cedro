@@ -35,105 +35,107 @@ const createTcpServer = (options: {
       }
     >();
 
-    // Server instance
-    const server = Bun.serve<WebSocketData, never>({
-      port: options.port,
-      hostname: "0.0.0.0",
+    const websocketHandler: Bun.WebSocketHandler<WebSocketData> = {
+      // Connection opened
+      open: (ws) => {
+        const clientId = ws.data.id;
+        console.log("Client connected: ", clientId);
+        // Create client handler fiber
+        const fiber = Effect.gen(function* () {
+          const incomingQueue = yield* Queue.unbounded<Uint8Array>();
+          const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
+          ws.data.incomingQueue = incomingQueue;
+          ws.data.outgoingQueue = outgoingQueue;
+          // Writer fiber
+          yield* pipe(
+            Effect.iterate(undefined, {
+              while: () => true,
+              body: () =>
+                pipe(
+                  Queue.take(outgoingQueue),
+                  Effect.tap((data) => Effect.sync(() => ws.send(data))),
+                  Effect.catchAll(() => Effect.void)
+                ),
+            }),
+            Effect.fork
+          );
 
-      // Client connection handler
-      async fetch(req, server) {
-        if (
-          server.upgrade(req, {
-            // data: { id: Math.random().toString(36).substr(2, 9) },
-            data: { id: webcrypto.randomUUID() },
-          })
-        ) {
-          return;
-        }
-        return new Response("Upgrade failed", { status: 500 });
+          // Cleanup when closed
+          yield* pipe(
+            Effect.never,
+            Effect.onInterrupt(() =>
+              Effect.sync(() => {
+                clients.delete(clientId);
+                Queue.shutdown(incomingQueue);
+                Queue.shutdown(outgoingQueue);
+              })
+            )
+          );
+        }).pipe(Effect.scoped, Effect.runFork);
+
+        // Add to clients map
+        clients.set(clientId, {
+          fiber,
+          send: (msg) => Queue.offer(ws.data.outgoingQueue, msg),
+        });
+
+        // Push client to connection stream
+        Queue.unsafeOffer(clientsQueue, {
+          id: clientId,
+          stream: Stream.fromQueue(ws.data.incomingQueue),
+          send: (data) => Queue.offer(ws.data.outgoingQueue, data),
+        });
       },
 
-      websocket: {
-        // Connection opened
-        open: (ws) => {
-          const clientId = ws.data.id;
-          console.log("Client connected: ", clientId);
-          // Create client handler fiber
-          const fiber = Effect.gen(function* () {
-            const incomingQueue = yield* Queue.unbounded<Uint8Array>();
-            const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
-            ws.data.incomingQueue = incomingQueue;
-            ws.data.outgoingQueue = outgoingQueue;
-            // Writer fiber
-            yield* pipe(
-              Effect.iterate(undefined, {
-                while: () => true,
-                body: () =>
-                  pipe(
-                    Queue.take(outgoingQueue),
-                    Effect.tap((data) => Effect.sync(() => ws.send(data))),
-                    Effect.catchAll(() => Effect.void)
-                  ),
-              }),
-              Effect.fork
-            );
+      // Message handler
+      message: (ws, message) => {
+        // console.log(message);
+        const data =
+          message instanceof Buffer
+            ? new Uint8Array(message.buffer)
+            : new TextEncoder().encode(message.toString());
 
-            // Reader handler
-            // yield* pipe(
-            //   Queue.take(incomingQueue),
-            //   // Effect.flatMap((data) =>
-            //   //   Effect.log(`Client ${clientId} sent ${data.byteLength} bytes`)
-            //   // ),
-            //   Effect.forever,
-            //   Effect.fork
-            // );
+        ws.data.incomingQueue && Queue.unsafeOffer(ws.data.incomingQueue, data);
+      },
 
-            // Cleanup when closed
-            yield* pipe(
-              Effect.never,
-              Effect.onInterrupt(() =>
-                Effect.sync(() => {
-                  clients.delete(clientId);
-                  Queue.shutdown(incomingQueue);
-                  Queue.shutdown(outgoingQueue);
-                })
-              )
-            );
-          }).pipe(Effect.scoped, Effect.runFork);
+      // Connection closed
+      close: (ws) => {
+        const fiber = clients.get(ws.data.id)?.fiber;
+        fiber && Fiber.interrupt(fiber);
+      },
+    };
 
-          // Add to clients map
-          clients.set(clientId, {
-            fiber,
-            send: (msg) => Queue.offer(ws.data.outgoingQueue, msg),
-          });
+    // Server instance
+    const server = yield* Effect.try({
+      try: () =>
+        Bun.serve<WebSocketData, never>({
+          port: 80, //options.port,
+          hostname: "0.0.0.0",
 
-          // Push client to connection stream
-          Queue.unsafeOffer(clientsQueue, {
-            id: clientId,
-            stream: Stream.fromQueue(ws.data.incomingQueue),
-            send: (data) => Queue.offer(ws.data.outgoingQueue, data),
-          });
-        },
+          // Client connection handler
+          async fetch(req, server) {
+            if (
+              server.upgrade(req, {
+                // data: { id: Math.random().toString(36).substr(2, 9) },
+                data: { id: webcrypto.randomUUID() },
+              })
+            ) {
+              return;
+            }
+            return new Response("Upgrade failed", { status: 500 });
+          },
 
-        // Message handler
-        message: (ws, message) => {
-          // console.log(message);
-          const data =
-            message instanceof Buffer
-              ? new Uint8Array(message.buffer)
-              : new TextEncoder().encode(message.toString());
-
-          ws.data.incomingQueue &&
-            Queue.unsafeOffer(ws.data.incomingQueue, data);
-        },
-
-        // Connection closed
-        close: (ws) => {
-          const fiber = clients.get(ws.data.id)?.fiber;
-          fiber && Fiber.interrupt(fiber);
-        },
+          websocket: websocketHandler,
+        }),
+      catch: (error) => {
+        // Threat errors in server creation (Bun.serve call) as defects
+        if (error instanceof Error) {
+          throw error;
+        }
+        throw new Error(error as string);
       },
     });
+    // End server instance creation
 
     // Server close effect
     const close = Effect.sync(() => {
@@ -186,14 +188,10 @@ Effect.runPromise(
   pipe(
     program,
     Effect.catchAll((error) => {
-      // console.log("Recovered from error:", error);
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
     Effect.catchAllCause((cause) => {
-      console.log(
-        "Recovered from error:",
-        JSON.stringify(cause.toString().split("\n").at(0), null, 2)
-      );
+      console.log("Recovered from defect:", cause.toString());
       return Effect.log(
         `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`
       );
