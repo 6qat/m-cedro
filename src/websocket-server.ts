@@ -71,9 +71,7 @@ const createTcpServer = (options: {
                 body: () =>
                   pipe(
                     Queue.take(outgoingQueue),
-                    // Effect.tap((data) =>
-                    //   Effect.tryPromise(() => ws.send(data))
-                    // ),
+                    Effect.tap((data) => Effect.sync(() => ws.send(data))),
                     Effect.catchAll(() => Effect.void)
                   ),
               }),
@@ -81,14 +79,14 @@ const createTcpServer = (options: {
             );
 
             // Reader handler
-            yield* pipe(
-              Queue.take(incomingQueue),
-              Effect.flatMap((data) =>
-                Effect.log(`Client ${clientId} sent ${data.byteLength} bytes`)
-              ),
-              Effect.forever,
-              Effect.fork
-            );
+            // yield* pipe(
+            //   Queue.take(incomingQueue),
+            //   // Effect.flatMap((data) =>
+            //   //   Effect.log(`Client ${clientId} sent ${data.byteLength} bytes`)
+            //   // ),
+            //   Effect.forever,
+            //   Effect.fork
+            // );
 
             // Cleanup when closed
             yield* pipe(
@@ -119,7 +117,7 @@ const createTcpServer = (options: {
 
         // Message handler
         message: (ws, message) => {
-          console.log(message);
+          // console.log(message);
           const data =
             message instanceof Buffer
               ? new Uint8Array(message.buffer)
@@ -163,7 +161,7 @@ const program = Effect.gen(function* () {
         yield* Effect.log(`New client connected: ${client.id}`);
 
         // Send welcome message
-        yield* client.send(new TextEncoder().encode("Welcome!"));
+        yield* client.send(new TextEncoder().encode(`Welcome, ${client.id}!`));
 
         // Process client stream
         yield* pipe(
@@ -189,11 +187,16 @@ Effect.runPromise(
     program,
     Effect.catchAll((error) => {
       // console.log("Recovered from error:", error);
-      return Effect.log(`🚫Recovering from error ${error}`);
+      return Effect.log(`🚫 Recovering from error ${error}`);
     }),
     Effect.catchAllCause((cause) => {
-      // console.log("Recovered from error:", error);
-      return Effect.log(`💥Recovering from defect ${cause}`);
+      console.log(
+        "Recovered from error:",
+        JSON.stringify(cause.toString().split("\n").at(0), null, 2)
+      );
+      return Effect.log(
+        `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`
+      );
     })
   )
 );
