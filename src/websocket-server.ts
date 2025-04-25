@@ -47,8 +47,9 @@ const createTcpServer = (options: {
             // data: { id: Math.random().toString(36).substr(2, 9) },
             data: { id: webcrypto.randomUUID() },
           })
-        )
+        ) {
           return;
+        }
         return new Response("Upgrade failed", { status: 500 });
       },
 
@@ -183,4 +184,16 @@ const program = Effect.gen(function* () {
   yield* Effect.never;
 }).pipe(Effect.onInterrupt(() => Effect.log("Server shutdown")));
 
-Effect.runPromise(program);
+Effect.runPromise(
+  pipe(
+    program,
+    Effect.catchAll((error) => {
+      // console.log("Recovered from error:", error);
+      return Effect.log(`🚫Recovering from error ${error}`);
+    }),
+    Effect.catchAllCause((cause) => {
+      // console.log("Recovered from error:", error);
+      return Effect.log(`💥Recovering from defect ${cause}`);
+    })
+  )
+);

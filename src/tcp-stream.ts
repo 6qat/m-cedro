@@ -81,6 +81,7 @@ const createTcpConnection = (options: {
       Queue.shutdown(outgoingQueue);
     });
 
+    // returns TCPConnection
     return {
       stream: Stream.fromQueue(incomingQueue).pipe(Stream.ensuring(close)),
       send: (data: Uint8Array) => Queue.offer(outgoingQueue, data),
@@ -98,8 +99,7 @@ const program = Effect.gen(function* () {
     port: config.port,
   });
 
-  // Start r
-  // eading from the TCP connection
+  // Start reading from the TCP connection
   const readerFiber = yield* pipe(
     connection.stream,
     Stream.tap((data) =>
