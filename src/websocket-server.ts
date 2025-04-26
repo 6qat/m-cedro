@@ -43,7 +43,8 @@ const createTcpServer = (options: {
       // Connection opened
       open: (ws) => {
         const clientId = ws.data.id;
-        console.log("Client connected: ", clientId);
+        // console.log("Client connected: ", clientId);
+
         // Create client handler fiber
         const fiber = Effect.gen(function* () {
           const incomingQueue = yield* Queue.unbounded<Uint8Array>();
@@ -69,14 +70,18 @@ const createTcpServer = (options: {
             Effect.never,
             Effect.onInterrupt(() =>
               Effect.sync(() => {
+                // console.log("Client disconnected: ", clientId);
                 clients.delete(clientId);
-                Queue.shutdown(incomingQueue);
-                Queue.shutdown(outgoingQueue);
+                Effect.runPromise(Queue.shutdown(incomingQueue));
+                Effect.runPromise(Queue.shutdown(outgoingQueue));
               })
             )
           );
+          // End cleanup
+          // End client handler fiber
         }).pipe(Effect.scoped, Effect.runFork);
 
+        // Effect.runPromise(Fiber.interrupt(fiber));
         // Add to clients map
         clients.set(clientId, {
           fiber,
@@ -86,7 +91,7 @@ const createTcpServer = (options: {
         // Push client to connection stream
         Queue.unsafeOffer(clientsQueue, {
           id: clientId,
-          stream: Stream.fromQueue(ws.data.incomingQueue),
+          stream: Stream.fromQueue(ws.data.incomingQueue, { shutdown: true }),
           send: (data) => Queue.offer(ws.data.outgoingQueue, data),
           sendText: (data) =>
             Queue.offer(ws.data.outgoingQueue, new TextEncoder().encode(data)),
@@ -106,10 +111,11 @@ const createTcpServer = (options: {
 
       // Connection closed
       close: (ws) => {
+        // console.log("Client disconnected: ", ws.data.id);
         const fiber = clients.get(ws.data.id)?.fiber;
-        fiber && Fiber.interrupt(fiber);
+        fiber && Effect.runPromiseExit(Fiber.interrupt(fiber)).then(Effect.log);
       },
-    };
+    }; // End of websocket handler
 
     // Server instance
     const server = yield* Effect.try({
@@ -122,8 +128,8 @@ const createTcpServer = (options: {
           async fetch(req, server) {
             if (
               server.upgrade(req, {
-                // data: { id: Math.random().toString(36).substr(2, 9) },
-                data: { id: webcrypto.randomUUID() },
+                data: { id: Math.random().toString(36).substr(2, 9) },
+                //data: { id: webcrypto.randomUUID() },
               })
             ) {
               return;
@@ -153,7 +159,7 @@ const createTcpServer = (options: {
 
     // Returns the TCP server instance
     return {
-      clients: Stream.fromQueue(clientsQueue),
+      clients: Stream.fromQueue(clientsQueue, { shutdown: true }),
       close,
     };
   });
@@ -183,8 +189,16 @@ const program = Effect.gen(function* () {
               yield* client.sendText(message);
             })
           ),
+          // Stream.concat(
+          //   Stream.finalizer(Effect.log(`Client ${client.id} disconnected`))
+          // ),
+          Stream.onDone(() => Effect.log(`Client ${client.id} disconnected`)),
+          Stream.runFold(0, (count, _) => count + 1),
+          Effect.tap((count) =>
+            Effect.log(`Stream completed after ${count} items`)
+          ),
+          // Stream.ensuring(Effect.log(`Client ${client.id} disconnected`)),
           Stream.runDrain,
-
           Effect.fork
         ); // End client stream processing
       })
