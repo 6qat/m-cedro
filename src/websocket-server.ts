@@ -163,7 +163,7 @@ const createTcpServer = (options: {
 // Usage example
 const program = Effect.gen(function* () {
   const server = yield* createTcpServer({ port: 3000 });
-
+  yield* Effect.log("Server started");
   yield* pipe(
     server.clients,
     Stream.map((client) => client),
@@ -172,7 +172,7 @@ const program = Effect.gen(function* () {
         yield* Effect.log(`New client connected: ${client.id}`);
 
         // Send welcome message
-        yield* client.send(new TextEncoder().encode(`Welcome, ${client.id}!`));
+        yield* client.sendText(`Welcome, ${client.id}!`);
 
         // Process client stream
         yield* pipe(
