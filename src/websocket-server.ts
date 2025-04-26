@@ -65,23 +65,20 @@ const createTcpServer = (options: {
             Effect.fork
           );
 
-          // Cleanup when closed
-          yield* pipe(
-            Effect.never,
-            Effect.onInterrupt(() =>
-              Effect.sync(() => {
-                // console.log("Client disconnected: ", clientId);
-                clients.delete(clientId);
-                Effect.runPromise(Queue.shutdown(incomingQueue));
-                Effect.runPromise(Queue.shutdown(outgoingQueue));
-              })
-            )
-          );
-          // End cleanup
-          // End client handler fiber
-        }).pipe(Effect.scoped, Effect.runFork);
+          // Hangs the fiber, waiting for an interrupt signal
+          yield* Effect.never;
+        }).pipe(
+          Effect.onInterrupt(() =>
+            // Cleanup when closed
+            Effect.sync(() => {
+              clients.delete(clientId);
+              Effect.runPromise(Queue.shutdown(ws.data.incomingQueue));
+              Effect.runPromise(Queue.shutdown(ws.data.outgoingQueue));
+            })
+          ),
+          Effect.runFork
+        ); // End client handler fiber
 
-        // Effect.runPromise(Fiber.interrupt(fiber));
         // Add to clients map
         clients.set(clientId, {
           fiber,
@@ -96,25 +93,23 @@ const createTcpServer = (options: {
           sendText: (data) =>
             Queue.offer(ws.data.outgoingQueue, new TextEncoder().encode(data)),
         });
-      },
+      }, // end open callback
 
       // Message handler
       message: (ws, message) => {
-        // console.log(message);
         const data =
           message instanceof Buffer
             ? new Uint8Array(message.buffer)
             : new TextEncoder().encode(message.toString());
 
         ws.data.incomingQueue && Queue.unsafeOffer(ws.data.incomingQueue, data);
-      },
+      }, // end message callback
 
       // Connection closed
       close: (ws) => {
-        // console.log("Client disconnected: ", ws.data.id);
         const fiber = clients.get(ws.data.id)?.fiber;
         fiber && Effect.runPromiseExit(Fiber.interrupt(fiber)).then(Effect.log);
-      },
+      }, // end close callback
     }; // End of websocket handler
 
     // Server instance
@@ -128,7 +123,7 @@ const createTcpServer = (options: {
           async fetch(req, server) {
             if (
               server.upgrade(req, {
-                data: { id: Math.random().toString(36).substr(2, 9) },
+                data: { id: Math.random().toString(36).substring(2, 9) },
                 //data: { id: webcrypto.randomUUID() },
               })
             ) {
@@ -189,15 +184,11 @@ const program = Effect.gen(function* () {
               yield* client.sendText(message);
             })
           ),
-          // Stream.concat(
-          //   Stream.finalizer(Effect.log(`Client ${client.id} disconnected`))
-          // ),
           Stream.onDone(() => Effect.log(`Client ${client.id} disconnected`)),
           Stream.runFold(0, (count, _) => count + 1),
           Effect.tap((count) =>
             Effect.log(`Stream completed after ${count} items`)
           ),
-          // Stream.ensuring(Effect.log(`Client ${client.id} disconnected`)),
           Stream.runDrain,
           Effect.fork
         ); // End client stream processing
