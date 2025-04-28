@@ -1,18 +1,10 @@
-import { parseCedroMessage, formatCedroMessage } from "./cedro/cedroParser";
-import { api } from "../convex/_generated/api";
+import Ably from "ably";
 import { ConvexClient } from "convex/browser";
 import { Option } from "effect";
-import Ably from "ably";
-
+import { api } from "../convex/_generated/api";
+import { formatCedroMessage, parseCedroMessage } from "./cedro/cedroParser";
+import type { ConnectionConfig } from "./connection-config";
 // Configuration interface
-export interface ConnectionConfig {
-  host: string;
-  port: number;
-  magicToken: string;
-  username: string;
-  password: string;
-  tickers?: string[];
-}
 
 // Define a minimal interface for the socket
 interface TcpSocket {
@@ -45,7 +37,9 @@ class TcpClient {
   private ablyClient: Ably.Realtime;
 
   constructor() {
-    this.convexClient = new ConvexClient(Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : "");
+    this.convexClient = new ConvexClient(
+      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : ""
+    );
     this.ablyClient = new Ably.Realtime({ key: Bun.env.ABLY_KEY });
     this.ablyClient.connection.once("connected", () => {
       console.log("Connected to Ably!");
@@ -117,10 +111,16 @@ class TcpClient {
               console.log("Is defined???", Option.isSome(performanceMetrics));
               Option.match(performanceMetrics, {
                 onSome: (metrics) => {
-                  console.log("=================================================");
+                  console.log(
+                    "================================================="
+                  );
                   console.log(metrics);
-                  console.log("=================================================");
-                  this.logToFile(`Performance metrics: ${JSON.stringify(metrics, null, 2)}`);
+                  console.log(
+                    "================================================="
+                  );
+                  this.logToFile(
+                    `Performance metrics: ${JSON.stringify(metrics, null, 2)}`
+                  );
                   channel.publish("statistic", JSON.stringify(metrics));
                 },
                 onNone: () => {
@@ -150,7 +150,9 @@ class TcpClient {
           },
           error: async (socket, error) => {
             console.error(`Connection error: ${error.message}`);
-            this.logToFile(`Connection error: ${error.message} at ${new Date().toISOString()}`);
+            this.logToFile(
+              `Connection error: ${error.message} at ${new Date().toISOString()}`
+            );
             this.cleanup();
           },
           drain: () => {
@@ -159,7 +161,9 @@ class TcpClient {
         },
       });
     } catch (error) {
-      console.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `Connection error: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.logToFile(
         `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
       );
@@ -206,7 +210,9 @@ class TcpClient {
 
   // TODO: Colocar a métrica Contratos negociados por segundo
   // TODO: Colocar a métrica Taxa máxima atingida de mensagens por segundo
-  private getPerformanceMetrics(interval = 20000): Option.Option<PerformanceMetrics> {
+  private getPerformanceMetrics(
+    interval = 20000
+  ): Option.Option<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
 
@@ -216,7 +222,8 @@ class TcpClient {
       return Option.none();
     }
     const totalElapsed = (now - this.startTime) / 1000n; // Convert to microseconds
-    const messagesPerMicroSecond = Number(this.messageCount) / Number(totalElapsed);
+    const messagesPerMicroSecond =
+      Number(this.messageCount) / Number(totalElapsed);
 
     const performanceMetrics: PerformanceMetrics = {
       ticker: "WINJ25",
@@ -224,7 +231,8 @@ class TcpClient {
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds
       averageRate: messagesPerMicroSecond * 1000000, // messages/second
-      currentRate: (Number(this.messagesInInterval) * 1000000) / Number(elapsed), // messages/second
+      currentRate:
+        (Number(this.messagesInInterval) * 1000000) / Number(elapsed), // messages/second
     };
     // Reset interval counter
     this.lastReportTime = now;

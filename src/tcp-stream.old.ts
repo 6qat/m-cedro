@@ -1,6 +1,4 @@
-import { Effect, Stream, Queue, pipe, Console, Fiber, Duration } from "effect";
-import readline from "node:readline";
-import type { ConnectionConfig } from ".";
+import { Effect, Stream, Queue, pipe, Console } from "effect";
 
 const createTcpStream = (options: {
   host: string;
