@@ -1,0 +1,6 @@
+FROM oven/bun:latest
+WORKDIR /app
+COPY package.json .
+COPY src ./src
+RUN bun --frozen-lockfile install
+CMD ["bun", "src/websocket-server.ts"]

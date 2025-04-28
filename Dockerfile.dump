@@ -1,0 +1,11 @@
+# docker build -t ceschiatti/m-cedro:latest .
+# docker run -e CEDRO_USERNAME="$CEDRO_USERNAME" -e CEDRO_PASSWORD="$CEDRO_PASSWORD" -e CEDRO_TOKEN="$CEDRO_TOKEN" --restart always -v $(pwd)/dumps:/app/dumps --rm --name m-cedro ceschiatti/m-cedro
+# docker exec -it m-cedro bash
+# docker image prune -a -f
+
+FROM oven/bun:latest
+WORKDIR /app
+COPY package.json .
+COPY src ./src
+RUN bun --frozen-lockfile install
+CMD ["bun", "src/dump.ts"]

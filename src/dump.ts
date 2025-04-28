@@ -96,4 +96,17 @@ const program = Effect.gen(function* () {
   yield* Fiber.join(readerFiber);
 });
 
-Effect.runPromise(program);
+Effect.runPromise(
+  pipe(
+    program,
+    Effect.catchAll((error) => {
+      return Effect.log(`🚫 Recovering from error ${error}`);
+    }),
+    Effect.catchAllCause((cause) => {
+      console.log("Recovered from defect:", cause.toString());
+      return Effect.log(
+        `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`
+      );
+    })
+  )
+);

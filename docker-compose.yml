@@ -1,0 +1,22 @@
+services:
+  dump:
+    build:
+      context: .
+      dockerfile: Dockerfile.dump
+    environment:
+      - CEDRO_USERNAME=${CEDRO_USERNAME}
+      - CEDRO_PASSWORD=${CEDRO_PASSWORD}
+      - CEDRO_TOKEN=${CEDRO_TOKEN}
+
+    stdin_open: true
+    tty: true
+
+    volumes:
+      - ./dumps:/app/dumps
+    
+  websocket-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.websocket-server
+    ports:
+      - 3000:3000
