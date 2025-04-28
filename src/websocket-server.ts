@@ -1,4 +1,4 @@
-import { Effect, Stream, Queue, Fiber, pipe } from "effect";
+import { Effect, Stream, Queue, Fiber, pipe, Duration } from "effect";
 import { Console } from "node:console";
 import { webcrypto } from "node:crypto";
 import { server } from "typescript";
@@ -147,10 +147,14 @@ const createTcpServer = (options: {
 
     // Server close effect
     const close = Effect.gen(function* () {
-      bunServer.stop();
-      for (const client of clients.values()) {
-        client.fiber && Effect.runPromiseExit(Fiber.interrupt(client.fiber));
-      }
+      bunServer.stop(); // Stop listening to prevent new connections from being accepted.
+      yield* Effect.sleep(Duration.millis(200));
+      yield* Effect.forEach(
+        Array.from(clients.values()),
+        (client) =>
+          client.fiber ? Fiber.interrupt(client.fiber) : Effect.void,
+        { concurrency: "unbounded" }
+      );
       yield* Queue.shutdown(clientsQueue);
     });
 
@@ -184,7 +188,9 @@ const handleClient = (client: TcpClient) => {
       Stream.onDone(() => Effect.log(`Client ${client.id} disconnected!`)),
       Stream.runFold(0, (count, _) => count + 1),
       Effect.tap((count) =>
-        Effect.log(`Stream completed after ${count} items`)
+        Effect.log(
+          `Stream (client ${client.id}) completed after ${count} items`
+        )
       ),
       Stream.runDrain,
       Effect.fork
@@ -201,6 +207,7 @@ const program = Effect.gen(function* () {
   );
 
   const shutdownSignal = Effect.async((resume) => {
+    // const onExit = () => resume(Effect.void);
     const onExit = () => resume(server.close);
     process.once("SIGINT", onExit);
     process.once("SIGTERM", onExit);
@@ -217,11 +224,12 @@ const program = Effect.gen(function* () {
 
   // Keep server running until interrupted
   yield* pipe(Effect.never, Effect.race(shutdownSignal));
-}).pipe(Effect.ensuring(Effect.log("Server shutdown")));
+}).pipe(Effect.ensuring(Effect.log("Server shutting down...")));
 
 Effect.runPromise(
   pipe(
     Effect.scoped(program),
+    Effect.tap(() => Effect.log("Server shut down")),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),

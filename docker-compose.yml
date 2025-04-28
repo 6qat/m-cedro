@@ -18,5 +18,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.websocket-server
+    stdin_open: true
+    tty: true
     ports:
       - 3000:3000
