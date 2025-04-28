@@ -1,6 +1,7 @@
 import { Effect, Stream, Queue, Fiber, pipe } from "effect";
 import { Console } from "node:console";
 import { webcrypto } from "node:crypto";
+import { server } from "typescript";
 interface TcpClient {
   readonly id: string;
   readonly stream: Stream.Stream<Uint8Array, Error>;
@@ -145,11 +146,12 @@ const createTcpServer = (options: {
     // End server instance creation
 
     // Server close effect
-    const close = Effect.sync(() => {
+    const close = Effect.gen(function* () {
       server.stop();
       for (const client of clients.values()) {
-        client.fiber && Fiber.interrupt(client.fiber);
+        client.fiber && Effect.runPromiseExit(Fiber.interrupt(client.fiber));
       }
+      yield* Queue.shutdown(clientsQueue);
     });
 
     // Returns the TCP server instance
@@ -161,12 +163,24 @@ const createTcpServer = (options: {
 };
 
 // Usage example
+
 const program = Effect.gen(function* () {
-  const server = yield* createTcpServer({ port: 3000 });
+  const server = yield* Effect.acquireRelease(
+    createTcpServer({ port: 3000 }),
+    (server) => {
+      return server.close;
+    }
+  );
+
+  const shutdownSignal = Effect.async((resume) => {
+    const onExit = () => resume(server.close);
+    process.once("SIGINT", onExit);
+    process.once("SIGTERM", onExit);
+  });
+
   yield* Effect.log("Server started");
   yield* pipe(
     server.clients,
-    Stream.map((client) => client),
     Stream.tap((client) =>
       Effect.gen(function* () {
         yield* Effect.log(`New client connected: ${client.id}`);
@@ -184,7 +198,7 @@ const program = Effect.gen(function* () {
               yield* client.sendText(message);
             })
           ),
-          Stream.onDone(() => Effect.log(`Client ${client.id} disconnected`)),
+          Stream.onDone(() => Effect.log(`Client ${client.id} disconnected!`)),
           Stream.runFold(0, (count, _) => count + 1),
           Effect.tap((count) =>
             Effect.log(`Stream completed after ${count} items`)
@@ -194,17 +208,18 @@ const program = Effect.gen(function* () {
         ); // End client stream processing
       })
     ),
+    Stream.onDone(() => Effect.log("Clients stream completed")),
     Stream.runDrain,
     Effect.fork
   );
 
   // Keep server running until interrupted
-  yield* Effect.never;
-}).pipe(Effect.onInterrupt(() => Effect.log("Server shutdown")));
+  yield* pipe(Effect.never, Effect.race(shutdownSignal));
+}).pipe(Effect.ensuring(Effect.log("Server shutdown")));
 
 Effect.runPromise(
   pipe(
-    program,
+    Effect.scoped(program),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
