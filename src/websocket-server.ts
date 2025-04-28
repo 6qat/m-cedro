@@ -114,7 +114,7 @@ const createTcpServer = (options: {
     }; // End of websocket handler
 
     // Server instance
-    const server = yield* Effect.try({
+    const bunServer = yield* Effect.try({
       try: () =>
         Bun.serve<WebSocketData, never>({
           port: options.port,
@@ -147,7 +147,7 @@ const createTcpServer = (options: {
 
     // Server close effect
     const close = Effect.gen(function* () {
-      server.stop();
+      bunServer.stop();
       for (const client of clients.values()) {
         client.fiber && Effect.runPromiseExit(Fiber.interrupt(client.fiber));
       }
@@ -163,6 +163,34 @@ const createTcpServer = (options: {
 };
 
 // Usage example
+
+const handleClient = (client: TcpClient) => {
+  return Effect.gen(function* () {
+    yield* Effect.log(`New client connected: ${client.id}`);
+
+    // Send welcome message
+    yield* client.sendText(`Welcome, ${client.id}!`);
+
+    // Process client stream
+    yield* pipe(
+      client.stream,
+      Stream.tap((data) =>
+        Effect.gen(function* () {
+          const message = new TextDecoder().decode(data);
+          yield* Effect.log(`From ${client.id}: ${message}`);
+          yield* client.sendText(message);
+        })
+      ),
+      Stream.onDone(() => Effect.log(`Client ${client.id} disconnected!`)),
+      Stream.runFold(0, (count, _) => count + 1),
+      Effect.tap((count) =>
+        Effect.log(`Stream completed after ${count} items`)
+      ),
+      Stream.runDrain,
+      Effect.fork
+    ); // End client stream processing
+  });
+};
 
 const program = Effect.gen(function* () {
   const server = yield* Effect.acquireRelease(
@@ -181,33 +209,7 @@ const program = Effect.gen(function* () {
   yield* Effect.log("Server started");
   yield* pipe(
     server.clients,
-    Stream.tap((client) =>
-      Effect.gen(function* () {
-        yield* Effect.log(`New client connected: ${client.id}`);
-
-        // Send welcome message
-        yield* client.sendText(`Welcome, ${client.id}!`);
-
-        // Process client stream
-        yield* pipe(
-          client.stream,
-          Stream.tap((data) =>
-            Effect.gen(function* () {
-              const message = new TextDecoder().decode(data);
-              yield* Effect.log(`From ${client.id}: ${message}`);
-              yield* client.sendText(message);
-            })
-          ),
-          Stream.onDone(() => Effect.log(`Client ${client.id} disconnected!`)),
-          Stream.runFold(0, (count, _) => count + 1),
-          Effect.tap((count) =>
-            Effect.log(`Stream completed after ${count} items`)
-          ),
-          Stream.runDrain,
-          Effect.fork
-        ); // End client stream processing
-      })
-    ),
+    Stream.tap((client) => handleClient(client)),
     Stream.onDone(() => Effect.log("Clients stream completed")),
     Stream.runDrain,
     Effect.fork
