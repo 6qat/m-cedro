@@ -25,4 +25,5 @@ async function flood(n: number, lifeMs = 10000) {
   }, lifeMs);
 }
 
-flood(2500, 10000).catch(console.error);
+console.log("Blah");
+flood(500, 10000).catch(console.log);

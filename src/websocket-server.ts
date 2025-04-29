@@ -222,7 +222,7 @@ const shutdownSignal = Effect.async((resume) => {
 
 const program = Effect.gen(function* () {
   const server = yield* Effect.acquireRelease(
-    createTcpServer({ port: 3000 }),
+    createTcpServer({ port: 3030 }),
     (server) =>
       Effect.gen(function* () {
         yield* Effect.log("Server shut down");

@@ -11,7 +11,7 @@ export const options = {
 };
 
 export default function () {
-  const url = "ws://localhost:3000/";
+  const url = "ws://127.0.0.1:3030/";
   ws.connect(url, {}, (socket) => {
     socket.on("open", () => socket.send("ping"));
     socket.on("message", (m) => {});
