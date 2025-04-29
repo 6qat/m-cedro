@@ -2,10 +2,11 @@ import ws from "k6/ws";
 import { sleep } from "k6";
 
 // https://grafana.com/docs/k6/latest/set-up/install-k6/
+// bun add -d @types/k6
 // k6 run src/websocket-server.flood.k6.ts
 
 export const options = {
-  vus: 500,
+  vus: 1000,
   duration: "20s",
 };
 
