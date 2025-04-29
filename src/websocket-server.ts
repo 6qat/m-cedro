@@ -240,6 +240,7 @@ const program = Effect.gen(function* () {
     Stream.runDrain,
     Effect.fork
   );
+
   yield* shutdownSignal;
   yield* Effect.log("Shutting down server");
   yield* Effect.log("Closing client connections");
