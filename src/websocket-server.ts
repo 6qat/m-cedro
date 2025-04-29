@@ -9,7 +9,7 @@ import {
   Ref,
 } from "effect";
 import { webcrypto } from "node:crypto";
-import { server } from "typescript";
+
 interface TcpClient {
   readonly id: string;
   readonly stream: Stream.Stream<Uint8Array, Error>;
@@ -54,29 +54,30 @@ const createTcpServer = (options: {
         const clientId = ws.data.id;
         // console.log("Client connected: ", clientId);
 
-        // Create client handler fiber
-        const fiber = Effect.gen(function* () {
-          const incomingQueue = yield* Queue.unbounded<Uint8Array>();
-          const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
-          ws.data.incomingQueue = incomingQueue;
-          ws.data.outgoingQueue = outgoingQueue;
-          // Writer fiber
-          yield* pipe(
-            Effect.iterate(undefined, {
-              while: () => true,
-              body: () =>
-                pipe(
-                  Queue.take(outgoingQueue),
-                  Effect.tap((data) => Effect.sync(() => ws.send(data))),
-                  Effect.catchAll(() => Effect.void)
-                ),
-            }),
-            Effect.fork
-          );
+        // Build client handler effect
+        const clientEffect = pipe(
+          Effect.scoped(Effect.gen(function* () {
+            const incomingQueue = yield* Queue.unbounded<Uint8Array>();
+            const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
+            ws.data.incomingQueue = incomingQueue;
+            ws.data.outgoingQueue = outgoingQueue;
+            // Writer fiber
+            const writerFiber = yield* pipe(
+              Effect.iterate(undefined, {
+                while: () => true,
+                body: () =>
+                  pipe(
+                    Queue.take(outgoingQueue),
+                    Effect.tap((data) => Effect.sync(() => ws.send(data))),
+                    Effect.catchAll(() => Effect.void)
+                  ),
+              }),
+              Effect.forkScoped
+            );
 
-          // Hangs the fiber, waiting for an interrupt signal
-          yield* Effect.never;
-        }).pipe(
+            // Hangs the fiber, waiting for an interrupt signal
+            yield* Effect.never;
+          })),
           Effect.onInterrupt(() =>
             // Cleanup when closed
             Effect.sync(() => {
@@ -84,9 +85,11 @@ const createTcpServer = (options: {
               Effect.runPromise(Queue.shutdown(ws.data.incomingQueue));
               Effect.runPromise(Queue.shutdown(ws.data.outgoingQueue));
             })
-          ),
-          Effect.runFork
-        ); // End client handler fiber
+          )
+        );
+
+        // Fork the composed effect
+        const fiber = Effect.runFork(clientEffect);
 
         // Add to clients map
         clients.set(clientId, {

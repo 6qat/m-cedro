@@ -6,7 +6,7 @@ import { sleep } from "k6";
 // k6 run src/websocket-server.flood.k6.ts
 
 export const options = {
-  vus: 1000,
+  vus: 5000,
   duration: "20s",
 };
 
