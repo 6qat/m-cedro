@@ -1,5 +1,13 @@
-import { Effect, Stream, Queue, Fiber, pipe, Duration } from "effect";
-import { Console } from "node:console";
+import {
+  Effect,
+  Stream,
+  Queue,
+  Fiber,
+  pipe,
+  Duration,
+  Console,
+  Ref,
+} from "effect";
 import { webcrypto } from "node:crypto";
 import { server } from "typescript";
 interface TcpClient {
@@ -113,6 +121,7 @@ const createTcpServer = (options: {
       }, // end close callback
     }; // End of websocket handler
 
+    const closeAlreadCalled = yield* Ref.make(false);
     // Server instance
     const bunServer = yield* Effect.try({
       try: () =>
@@ -147,15 +156,23 @@ const createTcpServer = (options: {
 
     // Server close effect
     const close = Effect.gen(function* () {
-      bunServer.stop(); // Stop listening to prevent new connections from being accepted.
-      yield* Effect.sleep(Duration.millis(200));
-      yield* Effect.forEach(
-        Array.from(clients.values()),
-        (client) =>
-          client.fiber ? Fiber.interrupt(client.fiber) : Effect.void,
-        { concurrency: "unbounded" }
-      );
-      yield* Queue.shutdown(clientsQueue);
+      yield* Effect.if(closeAlreadCalled, {
+        onTrue: () => Effect.void,
+        onFalse: () =>
+          Effect.gen(function* () {
+            // yield* Effect.log("Server shutting down");
+            bunServer.stop(); // Stop listening to prevent new connections from being accepted.
+            yield* Effect.sleep(Duration.millis(200));
+            yield* Effect.forEach(
+              Array.from(clients.values()),
+              (client) =>
+                client.fiber ? Fiber.interrupt(client.fiber) : Effect.void,
+              { concurrency: "unbounded" }
+            );
+            yield* Queue.shutdown(clientsQueue);
+            yield* Ref.set(closeAlreadCalled, true);
+          }),
+      });
     });
 
     // Returns the TCP server instance
@@ -168,8 +185,8 @@ const createTcpServer = (options: {
 
 // Usage example
 
-const handleClient = (client: TcpClient) => {
-  return Effect.gen(function* () {
+const handleClient = (client: TcpClient) =>
+  Effect.gen(function* () {
     yield* Effect.log(`New client connected: ${client.id}`);
 
     // Send welcome message
@@ -196,40 +213,44 @@ const handleClient = (client: TcpClient) => {
       Effect.fork
     ); // End client stream processing
   });
-};
+
+const shutdownSignal = Effect.async((resume) => {
+  const onExit = () => resume(Effect.void);
+  process.once("SIGINT", onExit);
+  process.once("SIGTERM", onExit);
+});
 
 const program = Effect.gen(function* () {
   const server = yield* Effect.acquireRelease(
     createTcpServer({ port: 3000 }),
-    (server) => {
-      return server.close;
-    }
+    (server) =>
+      Effect.gen(function* () {
+        yield* Effect.log("Server shut down");
+        yield* server.close;
+      })
   );
 
-  const shutdownSignal = Effect.async((resume) => {
-    // const onExit = () => resume(Effect.void);
-    const onExit = () => resume(server.close);
-    process.once("SIGINT", onExit);
-    process.once("SIGTERM", onExit);
-  });
-
   yield* Effect.log("Server started");
-  yield* pipe(
+
+  // Create a new stream for each connected client
+  const clientsStreamFiber = yield* pipe(
     server.clients,
     Stream.tap((client) => handleClient(client)),
     Stream.onDone(() => Effect.log("Clients stream completed")),
     Stream.runDrain,
     Effect.fork
   );
-
-  // Keep server running until interrupted
-  yield* pipe(Effect.never, Effect.race(shutdownSignal));
-}).pipe(Effect.ensuring(Effect.log("Server shutting down...")));
+  yield* shutdownSignal;
+  yield* Effect.log("Shutting down server");
+  yield* Effect.log("Closing client connections");
+  yield* server.close;
+  yield* Fiber.join(clientsStreamFiber);
+});
 
 Effect.runPromise(
   pipe(
     Effect.scoped(program),
-    Effect.tap(() => Effect.log("Server shut down")),
+    Effect.tap(() => Effect.log("Program finished")),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
