@@ -6,7 +6,7 @@ COPY package.json .
 RUN sed -i 's/"@6qat\/tcp-connection": "workspace:\*"/"@6qat\/tcp-connection": "^0.1.0"/' package.json
 
 # Install dependencies 
-RUN bun --frozen-lockfile install
+RUN bun --frozen-lockfile install --production
 
 # Copy source code
 COPY src ./src

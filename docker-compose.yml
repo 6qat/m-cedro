@@ -2,6 +2,8 @@
 # docker compose  --profile websocket up
 # docker compose --profile all build
 
+# wscat -c ws://localhost:3030
+
 services:
   dump:
     profiles: [ "dump", "all" ]
