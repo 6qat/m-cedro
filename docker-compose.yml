@@ -13,7 +13,7 @@ services:
 
   #   volumes:
   #     - ./dumps:/app/dumps
-    
+
   websocket-server-1:
     build:
       context: .

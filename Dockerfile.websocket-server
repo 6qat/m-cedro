@@ -1,6 +1,8 @@
 FROM oven/bun:latest
 WORKDIR /app
 COPY package.json .
+# Replace workspace ref with npm version
+RUN sed -i 's/"@6qat\/tcp-connection": "workspace:\*"/"@6qat\/tcp-connection": "^0.1.0"/' package.json
 COPY src ./src
 RUN bun --frozen-lockfile install
 CMD ["bun", "src/websocket-server.ts"]

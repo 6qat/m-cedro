@@ -6,6 +6,8 @@
 FROM oven/bun:latest
 WORKDIR /app
 COPY package.json .
+# Replace workspace ref with file ref before installing
+RUN sed -i 's/"@6qat\/tcp-connection": "workspace:\*"/"@6qat\/tcp-connection": "file:..\/tcp-connections"/' package.json
 COPY src ./src
 RUN bun --frozen-lockfile install
 CMD ["bun", "src/dump.ts"]
