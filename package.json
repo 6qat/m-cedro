@@ -1,36 +1,37 @@
 {
-  "name": "m-cedro",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@types/amqplib": "^0.10.7",
-    "@types/bun": "1.2.10",
-    "@types/k6": "^1.0.2",
-    "@types/ws": "^8.18.1",
-    "concurrently": "^9.1.2",
-    "ws": "^8.18.1"
-  },
-  "peerDependencies": {
-    "typescript": "^5.8.3"
-  },
-  "scripts": {
-    "format": "biome format --write .",
-    "lint": "biome lint .",
-    "check": "biome check --apply .",
-    "dev:convex": "convex dev",
-    "dev:server": "bun run index.ts",
-    "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\"",
-    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile bin/out ./src/index.ts",
-    "build:dump:arm": "bun build --minify-whtespace --minify-syntax --outdir . ./src/dump.ts"
-  },
-  "dependencies": {
-    "@elysiajs/swagger": "^1.2.2",
-    "ably": "^2.7.0",
-    "amqplib": "^0.10.7",
-    "convex": "^1.23.0",
-    "effect": "^3.14.14",
-    "elysia": "^1.2.25"
-  }
+	"name": "m-cedro",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@types/amqplib": "^0.10.7",
+		"@types/bun": "1.2.10",
+		"@types/k6": "^1.0.2",
+		"@types/ws": "^8.18.1",
+		"concurrently": "^9.1.2",
+		"ws": "^8.18.1"
+	},
+	"peerDependencies": {
+		"typescript": "^5.8.3"
+	},
+	"scripts": {
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"check": "biome check --apply .",
+		"dev:convex": "convex dev",
+		"dev:server": "bun run index.ts",
+		"dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\"",
+		"build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile bin/out ./src/index.ts",
+		"build:dump:arm": "bun build --minify-whtespace --minify-syntax --outdir . ./src/dump.ts"
+	},
+	"dependencies": {
+		"@6qat/tcp-connection": "workspace:*",
+		"@elysiajs/swagger": "^1.2.2",
+		"ably": "^2.7.0",
+		"amqplib": "^0.10.7",
+		"convex": "^1.23.0",
+		"effect": "^3.14.14",
+		"elysia": "^1.2.25"
+	}
 }

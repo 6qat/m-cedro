@@ -8,7 +8,7 @@ import {
 	Duration,
 	Config,
 } from "effect";
-import { createTcpConnection } from "./tcp-stream";
+import { createTcpConnection } from "@6qat/tcp-connection";
 import type { ConnectionConfig } from "./connection-config";
 import readline from "node:readline";
 
