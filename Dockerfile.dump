@@ -3,11 +3,36 @@
 # docker exec -it m-cedro bash
 # docker image prune -a -f
 
-FROM oven/bun:latest
+FROM oven/bun:latest AS builder
 WORKDIR /app
+
+# Copy package files and modify dependency for Docker
 COPY package.json .
-# Replace workspace ref with file ref before installing
-RUN sed -i 's/"@6qat\/tcp-connection": "workspace:\*"/"@6qat\/tcp-connection": "file:..\/tcp-connections"/' package.json
-COPY src ./src
+RUN sed -i 's/"@6qat\/tcp-connection": "workspace:\*"/"@6qat\/tcp-connection": "^0.1.0"/' package.json
+
+# Install dependencies
 RUN bun --frozen-lockfile install
+
+# Copy source code
+COPY src ./src
+
+# Production stage
+FROM oven/bun:alpine AS production
+WORKDIR /app
+
+# Copy only the necessary files from the builder stage
+COPY --from=builder /app/package.json .
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+
+# Create volume mount point
+RUN mkdir -p /app/dumps
+VOLUME ["/app/dumps"]
+
+# Set non-root user for security
+USER bun
+
+# Set NODE_ENV environment variable
+ENV NODE_ENV=production
+
 CMD ["bun", "src/dump.ts"]
