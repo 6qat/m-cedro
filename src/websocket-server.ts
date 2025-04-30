@@ -52,32 +52,34 @@ const createTcpServer = (options: {
       // Connection opened
       open: (ws) => {
         const clientId = ws.data.id;
-        // console.log("Client connected: ", clientId);
 
         // Build client handler effect
         const clientEffect = pipe(
-          Effect.scoped(Effect.gen(function* () {
-            const incomingQueue = yield* Queue.unbounded<Uint8Array>();
-            const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
-            ws.data.incomingQueue = incomingQueue;
-            ws.data.outgoingQueue = outgoingQueue;
-            // Writer fiber
-            const writerFiber = yield* pipe(
-              Effect.iterate(undefined, {
-                while: () => true,
-                body: () =>
-                  pipe(
-                    Queue.take(outgoingQueue),
-                    Effect.tap((data) => Effect.sync(() => ws.send(data))),
-                    Effect.catchAll(() => Effect.void)
-                  ),
-              }),
-              Effect.forkScoped
-            );
+          Effect.scoped(
+            Effect.gen(function* () {
+              const incomingQueue = yield* Queue.unbounded<Uint8Array>();
+              const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
+              ws.data.incomingQueue = incomingQueue;
+              ws.data.outgoingQueue = outgoingQueue;
+              // Writer fiber
+              yield* pipe(
+                Effect.iterate(undefined, {
+                  while: () => true,
+                  body: () =>
+                    pipe(
+                      Queue.take(outgoingQueue),
+                      Effect.tap((data) => Effect.sync(() => ws.send(data))),
+                      Effect.catchAll(() => Effect.void)
+                    ),
+                }),
+                // This effect will automatically clean up on parent interrupt
+                Effect.forkScoped
+              );
 
-            // Hangs the fiber, waiting for an interrupt signal
-            yield* Effect.never;
-          })),
+              // Hangs the fiber, waiting for an interrupt signal
+              yield* Effect.never;
+            })
+          ),
           Effect.onInterrupt(() =>
             // Cleanup when closed
             Effect.sync(() => {
@@ -86,9 +88,9 @@ const createTcpServer = (options: {
               Effect.runPromise(Queue.shutdown(ws.data.outgoingQueue));
             })
           )
-        );
+        ); // end client effect
 
-        // Fork the composed effect
+        // Fork the composed effect (scoped)
         const fiber = Effect.runFork(clientEffect);
 
         // Add to clients map
@@ -159,6 +161,8 @@ const createTcpServer = (options: {
 
     // Server close effect
     const close = Effect.gen(function* () {
+      // const already = yield* Ref.getAndSet(closeAlreadCalled, true);
+      // if (already) return;
       yield* Effect.if(closeAlreadCalled, {
         onTrue: () => Effect.void,
         onFalse: () =>
