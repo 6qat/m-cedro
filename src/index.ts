@@ -12,14 +12,14 @@ interface TcpSocket {
   end(): void;
 }
 
-type PerformanceMetrics = {
+interface PerformanceMetrics {
   ticker: string;
   totalMessages: number; // messages (messages)
   totalElapsed: number; // seconds (total elapsed time)
   elapsed: number; // seconds (elapsed time)
   averageRate: number; // messages per second (average rate)
   currentRate: number; // messages per second (current rate)
-};
+}
 
 class TcpClient {
   private client: TcpSocket | null = null;

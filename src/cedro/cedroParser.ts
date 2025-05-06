@@ -330,8 +330,8 @@ export function parseCedroMessage(message: string): CedroMessage {
   const parts = message.endsWith("!") ? message.slice(0, -1).split(":") : message.split(":");
 
   // Extract ticker and time
-  const ticker = parts[1] as string;
-  const time = parts[2] as string;
+  const ticker = parts[1]!;
+  const time = parts[2]!;
 
   // Initialize fields object
   const fields: Record<number, string | number> = {};
@@ -339,8 +339,8 @@ export function parseCedroMessage(message: string): CedroMessage {
   // Process the rest of the parts as field:value pairs
   for (let i = 3; i < parts.length; i += 2) {
     if (i + 1 < parts.length) {
-      const fieldId = Number.parseInt(parts[i] as string, 10);
-      const rawValue = parts[i + 1] as string;
+      const fieldId = Number.parseInt(parts[i]!, 10);
+      const rawValue = parts[i + 1]!;
 
       // Try to convert numeric values
       const value = !Number.isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
