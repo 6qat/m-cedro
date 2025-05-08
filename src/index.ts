@@ -1,9 +1,9 @@
-import Ably from "ably";
-import { ConvexClient } from "convex/browser";
-import { Option } from "effect";
-import { api } from "../convex/_generated/api";
-import { formatCedroMessage, parseCedroMessage } from "./cedro/cedroParser";
-import type { ConnectionConfig } from "./connection-config";
+import Ably from 'ably';
+import { ConvexClient } from 'convex/browser';
+import { Option } from 'effect';
+import { api } from '../convex/_generated/api';
+import { formatCedroMessage, parseCedroMessage } from './cedro/cedroParser';
+import type { ConnectionConfig } from './connection-config';
 // Configuration interface
 
 // Define a minimal interface for the socket
@@ -38,25 +38,25 @@ class TcpClient {
 
   constructor() {
     this.convexClient = new ConvexClient(
-      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : ""
+      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : '',
     );
     this.ablyClient = new Ably.Realtime({ key: Bun.env.ABLY_KEY });
-    this.ablyClient.connection.once("connected", () => {
-      console.log("Connected to Ably!");
+    this.ablyClient.connection.once('connected', () => {
+      console.log('Connected to Ably!');
     });
 
     // Create log file name with today's date using local time
     const today = new Date();
     const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, "0"); // Months are 0-indexed
-    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
+    const day = String(today.getDate()).padStart(2, '0');
     const dateString = `${year}-${month}-${day}`; // Format: YYYY-MM-DD
 
     // Generate a filename with sequence number if needed
     this.logFile = this.generateUniqueLogFileName(dateString);
 
     // Create the log file and initialize the writer
-    Bun.write(this.logFile, "");
+    Bun.write(this.logFile, '');
     const file = Bun.file(this.logFile);
     this.logWriter = file.writer();
 
@@ -65,8 +65,8 @@ class TcpClient {
 
   public async connect(config: ConnectionConfig): Promise<void> {
     try {
-      const channel = this.ablyClient.channels.get("davinci");
-      await channel.subscribe("statistic", (message) => {
+      const channel = this.ablyClient.channels.get('davinci');
+      await channel.subscribe('statistic', (message) => {
         console.log(`Message received: ${message.data}`);
       });
 
@@ -76,9 +76,9 @@ class TcpClient {
         port: config.port,
         socket: {
           open: async (socket) => {
-            console.log("Connected to server");
+            console.log('Connected to server');
             await this.logToFile(
-              `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`
+              `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`,
             );
 
             // Cast the socket to our interface
@@ -90,41 +90,41 @@ class TcpClient {
             this.setupConsoleInput();
           },
 
-          data: async (socket, data) => {
-            const messages = Buffer.from(data).toString().trim().split("!");
+          data: async (_socket, data) => {
+            const messages = Buffer.from(data).toString().trim().split('!');
             for (const message of messages) {
               const parsed = formatCedroMessage(parseCedroMessage(message));
 
-              if (!message.startsWith("T") && !message.startsWith("SYN")) {
+              if (!message.startsWith('T') && !message.startsWith('SYN')) {
                 return;
               }
               this.messageCount++;
 
               // Log to console
-              console.log("\n");
+              console.log('\n');
               console.log(message);
-              console.log("\n");
+              console.log('\n');
               console.log(parsed);
 
               // Report message rate periodically
               const performanceMetrics = this.getPerformanceMetrics(1000);
-              console.log("Is defined???", Option.isSome(performanceMetrics));
+              console.log('Is defined???', Option.isSome(performanceMetrics));
               Option.match(performanceMetrics, {
                 onSome: (metrics) => {
                   console.log(
-                    "================================================="
+                    '=================================================',
                   );
                   console.log(metrics);
                   console.log(
-                    "================================================="
+                    '=================================================',
                   );
                   this.logToFile(
-                    `Performance metrics: ${JSON.stringify(metrics, null, 2)}`
+                    `Performance metrics: ${JSON.stringify(metrics, null, 2)}`,
                   );
-                  channel.publish("statistic", JSON.stringify(metrics));
+                  channel.publish('statistic', JSON.stringify(metrics));
                 },
                 onNone: () => {
-                  console.log("No performance metrics");
+                  console.log('No performance metrics');
                 },
               });
 
@@ -135,7 +135,7 @@ class TcpClient {
 
               this.ablyClient; // Log to file
               this.logToFile(
-                `${message}\n\n${parsed}\n=================================================\n`
+                `${message}\n\n${parsed}\n=================================================\n`,
               );
             }
             // Increment message counter
@@ -143,15 +143,15 @@ class TcpClient {
             this.prompt();
           },
 
-          close: async (socket) => {
-            console.log("Connection closed");
+          close: async (_socket) => {
+            console.log('Connection closed');
             this.logToFile(`Connection closed at ${new Date().toISOString()}`);
             this.cleanup();
           },
-          error: async (socket, error) => {
+          error: async (_socket, error) => {
             console.error(`Connection error: ${error.message}`);
             this.logToFile(
-              `Connection error: ${error.message} at ${new Date().toISOString()}`
+              `Connection error: ${error.message} at ${new Date().toISOString()}`,
             );
             this.cleanup();
           },
@@ -162,10 +162,10 @@ class TcpClient {
       });
     } catch (error) {
       console.error(
-        `Connection error: ${error instanceof Error ? error.message : String(error)}`
+        `Connection error: ${error instanceof Error ? error.message : String(error)}`,
       );
       this.logToFile(
-        `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`
+        `Connection error: ${error instanceof Error ? error.message : String(error)} at ${new Date().toISOString()}`,
       );
       this.cleanup();
     }
@@ -211,7 +211,7 @@ class TcpClient {
   // TODO: Colocar a métrica Contratos negociados por segundo
   // TODO: Colocar a métrica Taxa máxima atingida de mensagens por segundo
   private getPerformanceMetrics(
-    interval = 20000
+    interval = 20000,
   ): Option.Option<PerformanceMetrics> {
     const now = process.hrtime.bigint();
     const elapsed = (now - this.lastReportTime) / 1000n; // Convert to microseconds
@@ -226,7 +226,7 @@ class TcpClient {
       Number(this.messageCount) / Number(totalElapsed);
 
     const performanceMetrics: PerformanceMetrics = {
-      ticker: "WINJ25",
+      ticker: 'WINJ25',
       totalMessages: Number(this.messageCount),
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds
@@ -243,10 +243,10 @@ class TcpClient {
 
   private setupConsoleInput(): void {
     // Set up Bun's stdin to handle user input
-    process.stdin.on("data", async (data: Buffer) => {
+    process.stdin.on('data', async (data: Buffer) => {
       const input = data.toString().trim();
 
-      if (input.toLowerCase() === "exit") {
+      if (input.toLowerCase() === 'exit') {
         this.cleanup();
         return;
       }
@@ -263,7 +263,7 @@ class TcpClient {
 
   private prompt(): void {
     // Simple prompt for user input
-    process.stdout.write("> ");
+    process.stdout.write('> ');
   }
 
   private cleanup(): void {
@@ -287,11 +287,11 @@ class TcpClient {
 // Example usage
 async function main(): Promise<void> {
   const config: ConnectionConfig = {
-    host: "datafeedcd3.cedrotech.com", // Replace with your host
+    host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
-    magicToken: "fake-token", // Replace with your magic token
-    username: "00000", // Replace with your username
-    password: "00000", // Replace with your password
+    magicToken: 'fake-token', // Replace with your magic token
+    username: '00000', // Replace with your username
+    password: '00000', // Replace with your password
   };
 
   const tcpClient = new TcpClient();
@@ -301,7 +301,7 @@ async function main(): Promise<void> {
 // Use Bun's module detection instead of Node.js's
 if (import.meta.main) {
   main().catch((err) => {
-    console.error("Error in main:", err);
+    console.error('Error in main:', err);
     process.exit(1);
   });
 }

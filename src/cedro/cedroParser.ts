@@ -159,157 +159,162 @@ export interface CedroMessage {
   titleName?: string; // 215: Nome do título
 
   // This catch-all property allows for any additional fields that might be added in the future
-  [key: string]: string | number | boolean | Record<number, string | number> | undefined;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Record<number, string | number>
+    | undefined;
 }
 
 // Known field mappings based on the provided documentation
 const FIELD_MAPPINGS: Record<number, string> = {
-  0: "lastModificationTime",
-  1: "lastModificationDate",
-  2: "lastTradePrice",
-  3: "bestBidPrice",
-  4: "bestAskPrice",
-  5: "lastTradeTime",
-  6: "currentTradeQuantity",
-  7: "lastTradeQuantity",
-  8: "tradesCount",
-  9: "cumulativeVolume",
-  10: "financialVolume",
-  11: "highPrice",
-  12: "lowPrice",
-  13: "previousClosePrice",
-  14: "openPrice",
-  15: "bestBidTime",
-  16: "bestAskTime",
-  17: "cumulativeBidVolume",
-  18: "cumulativeAskVolume",
-  19: "bestBidVolume",
-  20: "bestAskVolume",
-  21: "variation",
-  36: "lastWeekClosePrice",
-  37: "lastMonthClosePrice",
-  38: "lastYearClosePrice",
-  39: "previousDayOpenPrice",
-  40: "previousDayHighPrice",
-  41: "previousDayLowPrice",
-  42: "average",
-  43: "vhDaily",
-  44: "marketCode",
-  45: "assetTypeCode",
-  46: "standardLot",
-  47: "assetDescription",
-  48: "classificationName",
-  49: "quotationForm",
-  50: "intradayDate",
-  51: "lastTradeDate",
-  52: "shortAssetDescription",
-  53: "canceledTradeId",
-  54: "lastTradeDate",
-  56: "unattendedOffersDirection",
-  57: "unattendedQuantity",
-  58: "scheduledOpeningTime",
-  59: "rescheduledOpeningTime",
-  60: "bestBidBrokerCode",
-  61: "bestAskBrokerCode",
-  62: "buyBrokerCode",
-  63: "sellBrokerCode",
-  64: "expirationDate",
-  65: "expired",
-  66: "totalSecurities",
-  67: "instrumentStatus",
-  72: "optionType",
-  74: "optionDirection",
-  81: "parentSymbol",
-  82: "theoreticalOpenPrice",
-  83: "theoreticalQuantity",
-  84: "assetStatus",
-  85: "strikePrice",
-  86: "priceDiff",
-  87: "previousDate",
-  88: "assetPhase",
-  89: "previousDayAverage",
-  90: "marginInterval",
-  94: "averageVolume20Days",
-  95: "marketCapitalization",
-  96: "marketType",
-  97: "weekVariation",
-  98: "monthVariation",
-  99: "yearVariation",
-  100: "openInterest",
-  101: "businessDaysToExpiration",
-  102: "daysToExpiration",
-  103: "dayAdjustment",
-  104: "previousDayAdjustment",
-  105: "securityId",
-  106: "tickDirection",
-  107: "tunnelUpperLimit",
-  108: "tunnelLowerLimit",
-  109: "tradingPhase",
-  110: "tickSize",
-  111: "minTradingVolume",
-  112: "minPriceIncrement",
-  113: "minOrderQuantity",
-  114: "maxOrderQuantity",
-  115: "instrumentId",
-  116: "currency",
-  117: "securityType",
-  118: "tradingCode",
-  119: "associatedProduct",
-  120: "expirationYearMonth",
-  121: "optionStrikePrice",
-  122: "optionStrikeCurrency",
-  123: "contractMultiplier",
-  124: "priceTypeCode",
-  125: "tradingEndTime",
-  126: "assetGroup",
-  127: "currentRateAdjustment",
-  128: "previousRateAdjustment",
-  129: "currentRateAdjustmentDate",
-  130: "withdrawalsUntilExpiration",
-  134: "hourVolumeVariation",
-  135: "dayVolumeVariation",
-  136: "sectorCode",
-  137: "subsectorCode",
-  138: "segmentCode",
-  139: "currentRateAdjustmentType",
-  140: "referencePrice",
-  141: "referencePriceDate",
-  142: "lastModificationTimeMs",
-  143: "lastTradeTimeMs",
-  144: "bestBidTimeMs",
-  145: "bestAskTimeMs",
-  146: "variationUsingPreviousDayAdjustment",
-  147: "diffFromPreviousDayAdjustment",
-  148: "tunnelUpperAuctionLimit",
-  149: "tunnelLowerAuctionLimit",
-  150: "tunnelUpperRejectionLimit",
-  151: "tunnelLowerRejectionLimit",
-  152: "tunnelUpperStaticLimit",
-  153: "tunnelLowerStaticLimit",
-  154: "expirationFullDate",
-  155: "weekLowPrice",
-  156: "weekHighPrice",
-  157: "monthLowPrice",
-  158: "monthHighPrice",
-  159: "yearLowPrice",
-  160: "yearHighPrice",
+  0: 'lastModificationTime',
+  1: 'lastModificationDate',
+  2: 'lastTradePrice',
+  3: 'bestBidPrice',
+  4: 'bestAskPrice',
+  5: 'lastTradeTime',
+  6: 'currentTradeQuantity',
+  7: 'lastTradeQuantity',
+  8: 'tradesCount',
+  9: 'cumulativeVolume',
+  10: 'financialVolume',
+  11: 'highPrice',
+  12: 'lowPrice',
+  13: 'previousClosePrice',
+  14: 'openPrice',
+  15: 'bestBidTime',
+  16: 'bestAskTime',
+  17: 'cumulativeBidVolume',
+  18: 'cumulativeAskVolume',
+  19: 'bestBidVolume',
+  20: 'bestAskVolume',
+  21: 'variation',
+  36: 'lastWeekClosePrice',
+  37: 'lastMonthClosePrice',
+  38: 'lastYearClosePrice',
+  39: 'previousDayOpenPrice',
+  40: 'previousDayHighPrice',
+  41: 'previousDayLowPrice',
+  42: 'average',
+  43: 'vhDaily',
+  44: 'marketCode',
+  45: 'assetTypeCode',
+  46: 'standardLot',
+  47: 'assetDescription',
+  48: 'classificationName',
+  49: 'quotationForm',
+  50: 'intradayDate',
+  51: 'lastTradeDate',
+  52: 'shortAssetDescription',
+  53: 'canceledTradeId',
+  54: 'lastTradeDate',
+  56: 'unattendedOffersDirection',
+  57: 'unattendedQuantity',
+  58: 'scheduledOpeningTime',
+  59: 'rescheduledOpeningTime',
+  60: 'bestBidBrokerCode',
+  61: 'bestAskBrokerCode',
+  62: 'buyBrokerCode',
+  63: 'sellBrokerCode',
+  64: 'expirationDate',
+  65: 'expired',
+  66: 'totalSecurities',
+  67: 'instrumentStatus',
+  72: 'optionType',
+  74: 'optionDirection',
+  81: 'parentSymbol',
+  82: 'theoreticalOpenPrice',
+  83: 'theoreticalQuantity',
+  84: 'assetStatus',
+  85: 'strikePrice',
+  86: 'priceDiff',
+  87: 'previousDate',
+  88: 'assetPhase',
+  89: 'previousDayAverage',
+  90: 'marginInterval',
+  94: 'averageVolume20Days',
+  95: 'marketCapitalization',
+  96: 'marketType',
+  97: 'weekVariation',
+  98: 'monthVariation',
+  99: 'yearVariation',
+  100: 'openInterest',
+  101: 'businessDaysToExpiration',
+  102: 'daysToExpiration',
+  103: 'dayAdjustment',
+  104: 'previousDayAdjustment',
+  105: 'securityId',
+  106: 'tickDirection',
+  107: 'tunnelUpperLimit',
+  108: 'tunnelLowerLimit',
+  109: 'tradingPhase',
+  110: 'tickSize',
+  111: 'minTradingVolume',
+  112: 'minPriceIncrement',
+  113: 'minOrderQuantity',
+  114: 'maxOrderQuantity',
+  115: 'instrumentId',
+  116: 'currency',
+  117: 'securityType',
+  118: 'tradingCode',
+  119: 'associatedProduct',
+  120: 'expirationYearMonth',
+  121: 'optionStrikePrice',
+  122: 'optionStrikeCurrency',
+  123: 'contractMultiplier',
+  124: 'priceTypeCode',
+  125: 'tradingEndTime',
+  126: 'assetGroup',
+  127: 'currentRateAdjustment',
+  128: 'previousRateAdjustment',
+  129: 'currentRateAdjustmentDate',
+  130: 'withdrawalsUntilExpiration',
+  134: 'hourVolumeVariation',
+  135: 'dayVolumeVariation',
+  136: 'sectorCode',
+  137: 'subsectorCode',
+  138: 'segmentCode',
+  139: 'currentRateAdjustmentType',
+  140: 'referencePrice',
+  141: 'referencePriceDate',
+  142: 'lastModificationTimeMs',
+  143: 'lastTradeTimeMs',
+  144: 'bestBidTimeMs',
+  145: 'bestAskTimeMs',
+  146: 'variationUsingPreviousDayAdjustment',
+  147: 'diffFromPreviousDayAdjustment',
+  148: 'tunnelUpperAuctionLimit',
+  149: 'tunnelLowerAuctionLimit',
+  150: 'tunnelUpperRejectionLimit',
+  151: 'tunnelLowerRejectionLimit',
+  152: 'tunnelUpperStaticLimit',
+  153: 'tunnelLowerStaticLimit',
+  154: 'expirationFullDate',
+  155: 'weekLowPrice',
+  156: 'weekHighPrice',
+  157: 'monthLowPrice',
+  158: 'monthHighPrice',
+  159: 'yearLowPrice',
+  160: 'yearHighPrice',
   // Tesouro Direto fields
-  200: "unitPrice",
-  201: "rateValue",
-  202: "minApplicationValue",
-  203: "market",
-  204: "titleCode",
-  205: "typeCode",
-  206: "typeName",
-  207: "selic",
-  208: "issueDate",
-  209: "trade",
-  210: "baseValue",
-  211: "buyRateValue",
-  212: "sellRateValue",
-  213: "indexerCode",
-  214: "indexerName",
-  215: "titleName",
+  200: 'unitPrice',
+  201: 'rateValue',
+  202: 'minApplicationValue',
+  203: 'market',
+  204: 'titleCode',
+  205: 'typeCode',
+  206: 'typeName',
+  207: 'selic',
+  208: 'issueDate',
+  209: 'trade',
+  210: 'baseValue',
+  211: 'buyRateValue',
+  212: 'sellRateValue',
+  213: 'indexerCode',
+  214: 'indexerName',
+  215: 'titleName',
 };
 
 /**
@@ -319,7 +324,7 @@ const FIELD_MAPPINGS: Record<number, string> = {
  */
 export function parseCedroMessage(message: string): CedroMessage {
   // Check if this is a valid Cedro message
-  if (!message.startsWith("T:")) {
+  if (!message.startsWith('T:')) {
     return {
       ticker: message,
       fields: {},
@@ -327,27 +332,36 @@ export function parseCedroMessage(message: string): CedroMessage {
   }
 
   // remove the last character if it is !
-  const parts = message.endsWith("!") ? message.slice(0, -1).split(":") : message.split(":");
+  const parts = message.endsWith('!')
+    ? message.slice(0, -1).split(':')
+    : message.split(':');
 
   // Extract ticker and time
-  const ticker = parts[1]!;
-  const time = parts[2]!;
+  if (parts.length < 3) {
+    throw new Error('Invalid message format');
+  }
+  const ticker = parts[1] || '';
+  const time = parts[2];
 
   // Initialize fields object
   const fields: Record<number, string | number> = {};
 
   // Process the rest of the parts as field:value pairs
-  for (let i = 3; i < parts.length; i += 2) {
-    if (i + 1 < parts.length) {
-      const fieldId = Number.parseInt(parts[i]!, 10);
-      const rawValue = parts[i + 1]!;
+  let i = 3;
+  while (i < parts.length) {
+    const [fieldPart, valuePart] = parts.slice(i, i + 2);
+    if (fieldPart && valuePart) {
+      const fieldId = Number.parseInt(fieldPart, 10);
+      const rawValue = valuePart;
 
       // Try to convert numeric values
-      const value = !Number.isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
+      const value = !Number.isNaN(Number(rawValue))
+        ? Number(rawValue)
+        : rawValue;
       fields[fieldId] = value;
     }
+    i += 2;
   }
-
   // Create the result object
   const result: CedroMessage = {
     ticker,
@@ -384,7 +398,7 @@ export function formatCedroMessage(message: CedroMessage): string {
   }
 
   if (message.variation !== undefined) {
-    const changeSign = message.variation >= 0 ? "+" : "";
+    const changeSign = message.variation >= 0 ? '+' : '';
     result += `Variação: ${changeSign}${message.variation}\n`;
   }
 
@@ -414,7 +428,10 @@ export function formatCedroMessage(message: CedroMessage): string {
   }
 
   // Format bid/ask data
-  if (message.bestBidPrice !== undefined && message.bestAskPrice !== undefined) {
+  if (
+    message.bestBidPrice !== undefined &&
+    message.bestAskPrice !== undefined
+  ) {
     result += `Compra/Venda: ${message.bestBidPrice}/${message.bestAskPrice}\n`;
   }
 
@@ -426,7 +443,7 @@ export function formatCedroMessage(message: CedroMessage): string {
       const hh = timeStr.substring(0, 2);
       const mm = timeStr.substring(2, 4);
       const ss = timeStr.substring(4, 6);
-      const ms = timeStr.length > 6 ? `.${timeStr.substring(6)}` : "";
+      const ms = timeStr.length > 6 ? `.${timeStr.substring(6)}` : '';
       result += `Horário Último Negócio: ${hh}:${mm}:${ss}${ms}\n`;
     } else {
       result += `Horário Último Negócio: ${message.lastTradeTimeMs}\n`;
@@ -449,52 +466,52 @@ export function formatCedroMessage(message: CedroMessage): string {
   // Add market information
   if (message.marketCode !== undefined) {
     const markets: Record<number, string> = {
-      1: "Bovespa",
-      2: "Dow Jones",
-      3: "BM&F",
-      4: "Índices",
-      5: "Money",
-      6: "Soma",
-      7: "Forex",
-      8: "Indicators",
-      9: "Others",
-      10: "Nyse",
-      11: "Bats",
-      12: "Nasdaq",
+      1: 'Bovespa',
+      2: 'Dow Jones',
+      3: 'BM&F',
+      4: 'Índices',
+      5: 'Money',
+      6: 'Soma',
+      7: 'Forex',
+      8: 'Indicators',
+      9: 'Others',
+      10: 'Nyse',
+      11: 'Bats',
+      12: 'Nasdaq',
     };
     result += `Mercado: ${markets[message.marketCode] || message.marketCode}\n`;
   }
 
   if (message.assetTypeCode !== undefined) {
     const assetTypes: Record<number, string> = {
-      1: "Ativo à vista",
-      2: "Opção",
-      3: "Índice",
-      4: "Commodity",
-      5: "Moeda",
-      6: "Termo",
-      7: "Futuro",
-      8: "Leilão",
-      9: "Bônus",
-      10: "Fracionário",
-      13: "ETF",
-      17: "Opção sobre futuro",
+      1: 'Ativo à vista',
+      2: 'Opção',
+      3: 'Índice',
+      4: 'Commodity',
+      5: 'Moeda',
+      6: 'Termo',
+      7: 'Futuro',
+      8: 'Leilão',
+      9: 'Bônus',
+      10: 'Fracionário',
+      13: 'ETF',
+      17: 'Opção sobre futuro',
     };
     result += `Tipo de Ativo: ${assetTypes[message.assetTypeCode] || message.assetTypeCode}\n`;
   }
 
   if (message.assetPhase !== undefined) {
     const phases: Record<string, string> = {
-      P: "Pré abertura",
-      A: "Abertura (sessão normal)",
-      PN: "Pré fechamento",
-      N: "Fechamento",
-      E: "Pré abertura do after",
-      R: "Abertura After",
-      NE: "Fechamento do after",
-      F: "Final",
-      NO: "Fechado",
-      T: "Pausado",
+      P: 'Pré abertura',
+      A: 'Abertura (sessão normal)',
+      PN: 'Pré fechamento',
+      N: 'Fechamento',
+      E: 'Pré abertura do after',
+      R: 'Abertura After',
+      NE: 'Fechamento do after',
+      F: 'Final',
+      NO: 'Fechado',
+      T: 'Pausado',
     };
     result += `Fase: ${phases[message.assetPhase] || message.assetPhase}\n`;
   }
@@ -505,10 +522,10 @@ export function formatCedroMessage(message: CedroMessage): string {
 
   if (message.tickDirection !== undefined) {
     const directions: Record<string, string> = {
-      "+": "Alta",
-      "0+": "Estável (último movimento foi alta)",
-      "-": "Baixa",
-      "0-": "Estável (último movimento foi baixa)",
+      '+': 'Alta',
+      '0+': 'Estável (último movimento foi alta)',
+      '-': 'Baixa',
+      '0-': 'Estável (último movimento foi baixa)',
     };
     result += `Direção: ${directions[message.tickDirection] || message.tickDirection}\n`;
   }
@@ -522,7 +539,7 @@ export function formatCedroMessage(message: CedroMessage): string {
     message.tunnelUpperStaticLimit !== undefined ||
     message.tunnelLowerStaticLimit !== undefined
   ) {
-    result += "\nLimites de Preço:\n";
+    result += '\nLimites de Preço:\n';
 
     if (message.tunnelUpperAuctionLimit !== undefined) {
       result += `  Limite Superior de Leilão: ${message.tunnelUpperAuctionLimit}\n`;
@@ -553,9 +570,12 @@ export function formatCedroMessage(message: CedroMessage): string {
     message.yearLowPrice !== undefined ||
     message.yearHighPrice !== undefined
   ) {
-    result += "\nFaixas de Preço Histórico:\n";
+    result += '\nFaixas de Preço Histórico:\n';
 
-    if (message.weekLowPrice !== undefined && message.weekHighPrice !== undefined) {
+    if (
+      message.weekLowPrice !== undefined &&
+      message.weekHighPrice !== undefined
+    ) {
       result += `  Semana: ${message.weekLowPrice} - ${message.weekHighPrice}\n`;
     } else {
       if (message.weekLowPrice !== undefined) {
@@ -566,7 +586,10 @@ export function formatCedroMessage(message: CedroMessage): string {
       }
     }
 
-    if (message.monthLowPrice !== undefined && message.monthHighPrice !== undefined) {
+    if (
+      message.monthLowPrice !== undefined &&
+      message.monthHighPrice !== undefined
+    ) {
       result += `  Mês: ${message.monthLowPrice} - ${message.monthHighPrice}\n`;
     } else {
       if (message.monthLowPrice !== undefined) {
@@ -577,7 +600,10 @@ export function formatCedroMessage(message: CedroMessage): string {
       }
     }
 
-    if (message.yearLowPrice !== undefined && message.yearHighPrice !== undefined) {
+    if (
+      message.yearLowPrice !== undefined &&
+      message.yearHighPrice !== undefined
+    ) {
       result += `  Ano: ${message.yearLowPrice} - ${message.yearHighPrice}\n`;
     } else {
       if (message.yearLowPrice !== undefined) {
@@ -613,20 +639,20 @@ export function formatCedroMessage(message: CedroMessage): string {
 
   // Add a section for other fields that might be important but not formatted above
   const importantFields = [
-    "average",
-    "dayAdjustment",
-    "hourVolumeVariation",
-    "dayVolumeVariation",
-    "securityType",
-    "currency",
-    "tradingCode",
+    'average',
+    'dayAdjustment',
+    'hourVolumeVariation',
+    'dayVolumeVariation',
+    'securityType',
+    'currency',
+    'tradingCode',
   ];
 
   let otherFieldsAdded = false;
   for (const field of importantFields) {
     if (message[field] !== undefined && !result.includes(field)) {
       if (!otherFieldsAdded) {
-        result += "\nOutros Dados:\n";
+        result += '\nOutros Dados:\n';
         otherFieldsAdded = true;
       }
       result += `  ${field}: ${message[field]}\n`;
@@ -634,9 +660,10 @@ export function formatCedroMessage(message: CedroMessage): string {
   }
 
   // Add raw fields section for debugging
-  result += "\nCampos Originais:\n";
+  result += '\nCampos Originais:\n';
   for (const [fieldId, value] of Object.entries(message.fields)) {
-    const fieldName = FIELD_MAPPINGS[Number.parseInt(fieldId, 10)] || `Campo ${fieldId}`;
+    const fieldName =
+      FIELD_MAPPINGS[Number.parseInt(fieldId, 10)] || `Campo ${fieldId}`;
     result += `  ${fieldId} (${fieldName}): ${value}\n`;
   }
 
@@ -648,16 +675,16 @@ export function formatCedroMessage(message: CedroMessage): string {
  */
 export function parseExampleMessage(): void {
   const exampleMessage =
-    "T:WINJ25:102635:2:133290:5:102635:6:1:7:1:8:1050609:9:3056682:21:0.346307:42:132918.6:62:3:63:3:86:460:106:0-:134:55.87283:135:82.451066:142:102635388:143:102635387:146:0.406023:147:539!";
+    'T:WINJ25:102635:2:133290:5:102635:6:1:7:1:8:1050609:9:3056682:21:0.346307:42:132918.6:62:3:63:3:86:460:106:0-:134:55.87283:135:82.451066:142:102635388:143:102635387:146:0.406023:147:539!';
 
   try {
     const parsed = parseCedroMessage(exampleMessage);
-    console.log("Parsed Message:");
+    console.log('Parsed Message:');
     console.log(parsed);
 
-    console.log("\nFormatted Message:");
+    console.log('\nFormatted Message:');
     console.log(formatCedroMessage(parsed));
   } catch (error) {
-    console.error("Error parsing message:", error);
+    console.error('Error parsing message:', error);
   }
 }

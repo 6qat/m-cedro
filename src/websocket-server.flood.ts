@@ -1,18 +1,18 @@
-import WebSocket from "ws";
+import WebSocket from 'ws';
 
 async function flood(n: number, lifeMs = 10000) {
   const conns = new Array<WebSocket>();
   await Promise.all(
     Array.from(
       { length: n },
-      (_, i) =>
+      (_, _i) =>
         new Promise<void>((res) => {
-          const ws = new WebSocket("ws://localhost:3000");
-          ws.on("open", () => res());
-          ws.on("error", () => res());
+          const ws = new WebSocket('ws://localhost:3000');
+          ws.on('open', () => res());
+          ws.on('error', () => res());
           conns.push(ws);
-        })
-    )
+        }),
+    ),
   );
   console.log(`✅ ${n} clients open`);
   // keep them alive for lifeMs then close
@@ -20,10 +20,10 @@ async function flood(n: number, lifeMs = 10000) {
     for (const ws of conns) {
       ws.close();
     }
-    console.log("🏁 Done");
+    console.log('🏁 Done');
     process.exit(0);
   }, lifeMs);
 }
 
-console.log("Blah");
+console.log('Blah');
 flood(500, 10000).catch(console.log);

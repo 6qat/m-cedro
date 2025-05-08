@@ -1,34 +1,34 @@
-import { createClient } from "redis";
+import { createClient } from 'redis';
 
 const client = createClient();
 
-client.on("error", (err) => console.log("Redis Client Error", err));
+client.on('error', (err) => console.log('Redis Client Error', err));
 
 await client.connect();
 
-await client.set("key", "value");
-const value = await client.get("key");
+await client.set('key', 'value');
+const value = await client.get('key');
 console.log(value);
 
-const user1 = {
-  name: "Paul John",
-  email: "paul.john@example.com",
+const _user1 = {
+  name: 'Paul John',
+  email: 'paul.john@example.com',
   age: 42,
-  city: "London",
+  city: 'London',
 };
 
-const user2 = {
-  name: "Eden Zamir",
-  email: "eden.zamir@example.com",
+const _user2 = {
+  name: 'Eden Zamir',
+  email: 'eden.zamir@example.com',
   age: 29,
-  city: "Tel Aviv",
+  city: 'Tel Aviv',
 };
 
-const user3 = {
-  name: "Paul Zamir",
-  email: "paul.zamir@example.com",
+const _user3 = {
+  name: 'Paul Zamir',
+  email: 'paul.zamir@example.com',
   age: 35,
-  city: "Tel Aviv",
+  city: 'Tel Aviv',
 };
 
 // const [user1Reply, user2Reply, user3Reply] = await Promise.all([
@@ -45,8 +45,8 @@ const user3 = {
 //   console.log(`ID: ${doc.id}, name: ${doc.value.name}, age: ${doc.value.age}`);
 // }
 
-const data = { name: "John", age: 30, city: "New York" };
-client.set("mykey", JSON.stringify(data));
+const data = { name: 'John', age: 30, city: 'New York' };
+client.set('mykey', JSON.stringify(data));
 
-const value2 = await client.get("mykey");
+const value2 = await client.get('mykey');
 console.log(value2);
