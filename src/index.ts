@@ -1,7 +1,7 @@
 import Ably from 'ably';
 import { ConvexClient } from 'convex/browser';
-import { Option } from 'effect';
-import { api } from '../convex/_generated/api';
+import { Config, Effect, Option } from 'effect';
+// import { api } from '../convex/_generated/api';
 import { formatCedroMessage, parseCedroMessage } from './cedro/cedroParser';
 import type { ConnectionConfig } from './connection-config';
 // Configuration interface
@@ -33,17 +33,17 @@ class TcpClient {
     flush: () => number | Promise<number>;
     end: () => void;
   }; // Type for FileSink with required methods
-  private convexClient: ConvexClient;
-  private ablyClient: Ably.Realtime;
+  // private convexClient: ConvexClient;
+  // private ablyClient: Ably.Realtime;
 
   constructor() {
-    this.convexClient = new ConvexClient(
-      Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : '',
-    );
-    this.ablyClient = new Ably.Realtime({ key: Bun.env.ABLY_KEY });
-    this.ablyClient.connection.once('connected', () => {
-      console.log('Connected to Ably!');
-    });
+    // this.convexClient = new ConvexClient(
+    //   Bun.env.CONVEX_URL ? Bun.env.CONVEX_URL : '',
+    // );
+    // this.ablyClient = new Ably.Realtime({ key: Bun.env.ABLY_KEY });
+    // this.ablyClient.connection.once('connected', () => {
+    //   console.log('Connected to Ably!');
+    // });
 
     // Create log file name with today's date using local time
     const today = new Date();
@@ -65,10 +65,10 @@ class TcpClient {
 
   public async connect(config: ConnectionConfig): Promise<void> {
     try {
-      const channel = this.ablyClient.channels.get('davinci');
-      await channel.subscribe('statistic', (message) => {
-        console.log(`Message received: ${message.data}`);
-      });
+      // const channel = this.ablyClient.channels.get('davinci');
+      // await channel.subscribe('statistic', (message) => {
+      //   console.log(`Message received: ${message.data}`);
+      // });
 
       // Connect to the TCP server using Bun.connect. Returns a socket which is ignored here.
       await Bun.connect({
@@ -121,7 +121,7 @@ class TcpClient {
                   this.logToFile(
                     `Performance metrics: ${JSON.stringify(metrics, null, 2)}`,
                   );
-                  channel.publish('statistic', JSON.stringify(metrics));
+                  // channel.publish('statistic', JSON.stringify(metrics));
                 },
                 onNone: () => {
                   console.log('No performance metrics');
@@ -133,7 +133,7 @@ class TcpClient {
               //   nano: Number(process.hrtime.bigint()),
               // });
 
-              this.ablyClient; // Log to file
+              // this.ablyClient; // Log to file
               this.logToFile(
                 `${message}\n\n${parsed}\n=================================================\n`,
               );
@@ -271,9 +271,9 @@ class TcpClient {
       this.client.end();
       this.client = null;
     }
-    if (this.convexClient) {
-      this.convexClient.close();
-    }
+    // if (this.convexClient) {
+    //   this.convexClient.close();
+    // }
 
     // Close the log writer
     if (this.logWriter) {
@@ -284,18 +284,22 @@ class TcpClient {
   }
 }
 
-// Example usage
-async function main(): Promise<void> {
+const program = Effect.gen(function* () {
   const config: ConnectionConfig = {
     host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
-    magicToken: 'fake-token', // Replace with your magic token
-    username: '00000', // Replace with your username
-    password: '00000', // Replace with your password
+    magicToken: yield* Config.string('CEDRO_TOKEN'), // Replace with your magic token
+    username: yield* Config.string('CEDRO_USERNAME'), // Replace with your username
+    password: yield* Config.string('CEDRO_PASSWORD'), // Replace with your password
+    tickers: ['WINM25', 'WDOK25'],
   };
-
   const tcpClient = new TcpClient();
-  await tcpClient.connect(config);
+  yield* Effect.promise(() => tcpClient.connect(config));
+});
+
+// Example usage
+async function main(): Promise<void> {
+  Effect.runPromise(program);
 }
 
 // Use Bun's module detection instead of Node.js's
