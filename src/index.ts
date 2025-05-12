@@ -254,7 +254,7 @@ class TcpClient {
       // Send user input to server with newline
       if (this.client) {
         this.client.write(`${input}\n`);
-        await this.logToFile(`User input: ${input}`);
+        this.logToFile(`User input: ${input}`);
       }
     });
 
