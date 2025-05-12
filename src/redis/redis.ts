@@ -1,9 +1,9 @@
-import { Config, Context, Data, Effect, Layer, Schema } from 'effect';
-import { createClient } from 'redis';
+import { Config, Context, Data, Effect, Layer } from 'effect';
+import { type RedisClientType, createClient } from 'redis';
 
 export class RedisError extends Data.TaggedError('RedisError')<{
-  cause?: unknown;
-  message?: string;
+  cause: unknown;
+  message: string;
 }> {}
 
 interface RedisImpl {
@@ -11,10 +11,12 @@ interface RedisImpl {
     fn: (client: ReturnType<typeof createClient>) => T,
   ) => Effect.Effect<Awaited<T>, RedisError, never>;
 }
+
 export class Redis extends Context.Tag('Redis')<Redis, RedisImpl>() {}
 
 export const make = (options?: Parameters<typeof createClient>[0]) =>
   Effect.gen(function* () {
+    // Try Redis connection within an Effect
     const client = yield* Effect.acquireRelease(
       Effect.tryPromise({
         try: () => createClient(options).connect(),
@@ -22,6 +24,8 @@ export const make = (options?: Parameters<typeof createClient>[0]) =>
       }),
       (client) => Effect.promise(() => client.quit()),
     );
+
+    // Return the RedisImpl interface
     return Redis.of({
       use: (fn) =>
         Effect.gen(function* () {
@@ -48,51 +52,30 @@ export const make = (options?: Parameters<typeof createClient>[0]) =>
     });
   });
 
-export const layer = (options?: Parameters<typeof createClient>[0]) =>
+export const layer = (options?: { url?: string }) =>
   Layer.scoped(Redis, make(options));
 
-export const fromEnv = Layer.scoped(
-  Redis,
-  Effect.gen(function* () {
-    const url = yield* Config.string('REDIS_URL');
-    return yield* make({ url });
-  }),
-);
-
-const VideoData = Schema.parseJson(
-  Schema.Struct({
-    title: Schema.String,
-  }),
-);
-type VideoData = Schema.Schema.Type<typeof VideoData>;
-
-export const saveVideo = (id: string, data: VideoData) =>
+// Example: Effectful Redis commands
+export const set = (key: string, value: string) =>
   Effect.gen(function* () {
     const redis = yield* Redis;
-    const encodedData = yield* Schema.encode(VideoData)(data);
-    yield* redis.use((client) => client.hSet('videos', id, encodedData));
-    yield* Effect.logInfo(`Saved to redis: ${id}`);
-  }).pipe(Effect.withLogSpan('saveVideo'), Effect.annotateLogs('foo', 'bar'));
+    yield* redis.use((client) => client.set(key, value));
+  });
 
-export const getPublishedSavedVideos = Effect.gen(function* () {
-  const redis = yield* Redis;
-  const rawVideos = yield* redis.use((client) => client.hGetAll('videos'));
-  const parsedVideos = yield* Schema.decode(
-    Schema.Record({
-      key: Schema.String,
-      value: VideoData,
-    }),
-  )(rawVideos as Record<string, string>);
+export const get = (key: string) =>
+  Effect.gen(function* () {
+    const redis = yield* Redis;
+    return yield* redis.use((client) => client.get(key));
+  });
 
-  for (const [id, data] of Object.entries(parsedVideos)) {
-    yield* Effect.logInfo(`Recieved: Video ID: ${id}, Data: ${data.title}`);
-  }
+export const del = (key: string) =>
+  Effect.gen(function* () {
+    const redis = yield* Redis;
+    yield* redis.use((client) => client.del(key));
+  });
 
-  return parsedVideos;
-}).pipe(Effect.withLogSpan('getPublishedSavedVideos'));
-
-export const clearRedisDb = Effect.gen(function* () {
-  const redis = yield* Redis;
-  yield* redis.use((client) => client.flushAll());
-  yield* Effect.logInfo('Redis database cleared');
-}).pipe(Effect.withLogSpan('clearRedisDb'));
+export const publish = (channel: string, message: string) =>
+  Effect.gen(function* () {
+    const redis = yield* Redis;
+    yield* redis.use((client) => client.publish(channel, message));
+  });

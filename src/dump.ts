@@ -7,12 +7,17 @@ import {
   Fiber,
   Duration,
   Config,
+  Layer,
 } from 'effect';
+import { BunRuntime } from '@effect/platform-bun';
+
 import { createTcpConnection } from '@6qat/tcp-connection';
 import type { TcpConnection } from '@6qat/tcp-connection';
 import type { ConnectionConfig } from './connection-config';
 import readline from 'node:readline';
 import { createClient } from 'redis';
+
+import { Redis, publish, make } from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
@@ -39,11 +44,7 @@ const program = Effect.gen(function* () {
     Stream.tap((data) =>
       Console.log(`Received: ${new TextDecoder().decode(data)}`),
     ),
-    Stream.tap((data) =>
-      Effect.promise(() =>
-        publisher.publish('winfut', new TextDecoder().decode(data)),
-      ),
-    ),
+    Stream.tap((data) => publish('winfut', new TextDecoder().decode(data))),
     Stream.runDrain,
     Effect.fork,
   );
@@ -106,9 +107,9 @@ const program = Effect.gen(function* () {
   yield* Fiber.join(readerFiber);
 });
 
-Effect.runPromise(
+BunRuntime.runMain(
   pipe(
-    program,
+    Effect.scoped(Effect.provide(program, Layer.scoped(Redis, make()))),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
