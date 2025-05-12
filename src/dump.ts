@@ -15,15 +15,11 @@ import { createTcpConnection } from '@6qat/tcp-connection';
 import type { TcpConnection } from '@6qat/tcp-connection';
 import type { ConnectionConfig } from './connection-config';
 import readline from 'node:readline';
-import { createClient } from 'redis';
 
-import { Redis, publish, make } from './redis/redis';
+import { Redis } from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
-  const publisher = createClient();
-  yield* Effect.promise(() => publisher.connect());
-
   const config: ConnectionConfig = {
     host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
@@ -44,7 +40,9 @@ const program = Effect.gen(function* () {
     Stream.tap((data) =>
       Console.log(`Received: ${new TextDecoder().decode(data)}`),
     ),
-    Stream.tap((data) => publish('winfut', new TextDecoder().decode(data))),
+    Stream.tap((data) =>
+      Redis.publish('winfut', new TextDecoder().decode(data)),
+    ),
     Stream.runDrain,
     Effect.fork,
   );
@@ -109,7 +107,7 @@ const program = Effect.gen(function* () {
 
 BunRuntime.runMain(
   pipe(
-    Effect.scoped(Effect.provide(program, Layer.scoped(Redis, make()))),
+    Effect.scoped(Effect.provide(program, Redis.layer())),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
