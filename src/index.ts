@@ -77,7 +77,7 @@ class TcpClient {
         socket: {
           open: async (socket) => {
             console.log('Connected to server');
-            await this.logToFile(
+            this.logToFile(
               `Connected to ${config.host}:${config.port} at ${new Date().toISOString()}`,
             );
 
@@ -86,6 +86,10 @@ class TcpClient {
             this.client.write(`${config.magicToken}\n`);
             this.client.write(`${config.username}\n`);
             this.client.write(`${config.password}\n`);
+
+            for (const ticker of config.tickers || []) {
+              this.client.write(`sqt ${ticker}\n`);
+            }
             // Start reading from console after connection is established
             this.setupConsoleInput();
           },
@@ -226,7 +230,7 @@ class TcpClient {
       Number(this.messageCount) / Number(totalElapsed);
 
     const performanceMetrics: PerformanceMetrics = {
-      ticker: 'WINJ25',
+      ticker: 'WINM25',
       totalMessages: Number(this.messageCount),
       totalElapsed: Number(totalElapsed) / 1000000, // seconds
       elapsed: Number(elapsed) / 1000000, // seconds

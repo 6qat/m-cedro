@@ -12,9 +12,13 @@ import { createTcpConnection } from '@6qat/tcp-connection';
 import type { TcpConnection } from '@6qat/tcp-connection';
 import type { ConnectionConfig } from './connection-config';
 import readline from 'node:readline';
+import { createClient } from 'redis';
 
 // Usage example
 const program = Effect.gen(function* () {
+  const publisher = createClient();
+  yield* Effect.promise(() => publisher.connect());
+
   const config: ConnectionConfig = {
     host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
@@ -34,6 +38,11 @@ const program = Effect.gen(function* () {
     connection.stream,
     Stream.tap((data) =>
       Console.log(`Received: ${new TextDecoder().decode(data)}`),
+    ),
+    Stream.tap((data) =>
+      Effect.promise(() =>
+        publisher.publish('winfut', new TextDecoder().decode(data)),
+      ),
     ),
     Stream.runDrain,
     Effect.fork,
