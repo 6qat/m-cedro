@@ -1,8 +1,8 @@
-import { Elysia, t } from "elysia";
-import { swagger } from "@elysiajs/swagger";
+import { Elysia, t } from 'elysia';
+import { swagger } from '@elysiajs/swagger';
 
 class Note {
-  constructor(public data: string[] = ["Moonhalo"]) {}
+  constructor(public data: string[] = ['Moonhalo']) {}
   add(note: string) {
     this.data.push(note);
     return this.data;
@@ -18,29 +18,29 @@ class Note {
 }
 
 export const note = new Elysia({
-  prefix: "/note",
+  prefix: '/note',
 })
   .use(swagger())
-  .decorate("note", new Note())
-  .get("/", ({ note }) => note.data)
-  .put("/", ({ note, body: { data } }) => note.add(data), {
+  .decorate('note', new Note())
+  .get('/', ({ note }) => note.data)
+  .put('/', ({ note, body: { data } }) => note.add(data), {
     body: t.Object({
       data: t.String(),
     }),
   })
   .get(
-    "/:index",
+    '/:index',
     ({ note, params: { index }, error }) => {
-      return note.data[index] ?? error(404, "Note not found");
+      return note.data[index] ?? error(404, 'Note not found');
     },
     {
       params: t.Object({
         index: t.Number(),
       }),
-    }
+    },
   )
   .delete(
-    "/:index",
+    '/:index',
     ({ note, params: { index }, error }) => {
       if (index in note.data) return note.remove(index);
 
@@ -50,10 +50,10 @@ export const note = new Elysia({
       params: t.Object({
         index: t.Number(),
       }),
-    }
+    },
   )
   .patch(
-    "/:index",
+    '/:index',
     ({ note, params: { index }, body: { data }, error }) => {
       if (index in note.data) return note.update(index, data);
 
@@ -66,5 +66,5 @@ export const note = new Elysia({
       body: t.Object({
         data: t.String(),
       }),
-    }
+    },
   );

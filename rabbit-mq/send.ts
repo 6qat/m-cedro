@@ -1,7 +1,7 @@
-import amqp from "amqplib";
+import amqp from 'amqplib';
 
-const QUEUE_NAME = "hello";
-const RABBITMQ_URL = "amqp://myuser:mypassword@localhost";
+const QUEUE_NAME = 'hello';
+const RABBITMQ_URL = 'amqp://myuser:mypassword@localhost';
 
 async function sendMessage() {
   const connection = await amqp.connect(RABBITMQ_URL);
@@ -9,7 +9,7 @@ async function sendMessage() {
 
   await channel.assertQueue(QUEUE_NAME, { durable: false });
 
-  const message = "Hello, RabbitMQ!";
+  const message = 'Hello, RabbitMQ!';
   channel.sendToQueue(QUEUE_NAME, Buffer.from(message));
 
   console.log(`✅ Sent: ${message}`);

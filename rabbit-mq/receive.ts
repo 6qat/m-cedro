@@ -1,7 +1,7 @@
-import amqp from "amqplib";
+import amqp from 'amqplib';
 
-const QUEUE_NAME = "hello";
-const RABBITMQ_URL = "amqp://myuser:mypassword@localhost";
+const QUEUE_NAME = 'hello';
+const RABBITMQ_URL = 'amqp://myuser:mypassword@localhost';
 
 async function receiveMessage() {
   const connection = await amqp.connect(RABBITMQ_URL);
@@ -18,7 +18,7 @@ async function receiveMessage() {
         console.log(`📩 Received: ${msg.content.toString()}`);
       }
     },
-    { noAck: true }
+    { noAck: true },
   );
 }
 

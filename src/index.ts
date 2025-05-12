@@ -297,15 +297,7 @@ const program = Effect.gen(function* () {
   yield* Effect.promise(() => tcpClient.connect(config));
 });
 
-// Example usage
-async function main(): Promise<void> {
-  Effect.runPromise(program);
-}
-
 // Use Bun's module detection instead of Node.js's
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error('Error in main:', err);
-    process.exit(1);
-  });
+  Effect.runPromise(program);
 }

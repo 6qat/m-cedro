@@ -7,21 +7,21 @@ import {
   Fiber,
   Duration,
   Config,
-} from "effect";
-import { createTcpConnection } from "@6qat/tcp-connection";
-import type { TcpConnection } from "@6qat/tcp-connection";
-import type { ConnectionConfig } from "./connection-config";
-import readline from "node:readline";
+} from 'effect';
+import { createTcpConnection } from '@6qat/tcp-connection';
+import type { TcpConnection } from '@6qat/tcp-connection';
+import type { ConnectionConfig } from './connection-config';
+import readline from 'node:readline';
 
 // Usage example
 const program = Effect.gen(function* () {
   const config: ConnectionConfig = {
-    host: "datafeedcd3.cedrotech.com", // Replace with your host
+    host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
-    magicToken: yield* Config.string("CEDRO_TOKEN"), // Replace with your magic token
-    username: yield* Config.string("CEDRO_USERNAME"), // Replace with your username
-    password: yield* Config.string("CEDRO_PASSWORD"), // Replace with your password
-    tickers: ["WINM25", "WDOK25"],
+    magicToken: yield* Config.string('CEDRO_TOKEN'), // Replace with your magic token
+    username: yield* Config.string('CEDRO_USERNAME'), // Replace with your username
+    password: yield* Config.string('CEDRO_PASSWORD'), // Replace with your password
+    tickers: ['WINM25', 'WDOK25'],
   };
 
   const connection: TcpConnection = yield* createTcpConnection({
@@ -33,10 +33,10 @@ const program = Effect.gen(function* () {
   const readerFiber = yield* pipe(
     connection.stream,
     Stream.tap((data) =>
-      Console.log(`Received: ${new TextDecoder().decode(data)}`)
+      Console.log(`Received: ${new TextDecoder().decode(data)}`),
     ),
     Stream.runDrain,
-    Effect.fork
+    Effect.fork,
   );
 
   // Send credentials immediately after connection is established
@@ -63,8 +63,8 @@ const program = Effect.gen(function* () {
   const handleSignal = async () => {
     shutdown();
   };
-  process.on("SIGINT", handleSignal);
-  process.on("SIGTERM", handleSignal);
+  process.on('SIGINT', handleSignal);
+  process.on('SIGTERM', handleSignal);
 
   // Setup readline interface for stdin
   const rl = readline.createInterface({
@@ -75,19 +75,19 @@ const program = Effect.gen(function* () {
 
   // Wrap readline in an Effect for cleanup
   yield* Effect.async((resume, signal) => {
-    rl.on("line", (line) => {
-      if (line === "quit") {
+    rl.on('line', (line) => {
+      if (line === 'quit') {
         rl.close();
       } else {
         Effect.runPromise(connection.sendText(`${line}\n`));
       }
     });
 
-    rl.on("close", () => {
+    rl.on('close', () => {
       resume(Effect.succeed(undefined));
     });
 
-    signal.addEventListener("abort", () => {
+    signal.addEventListener('abort', () => {
       rl.close();
     });
   });
@@ -104,10 +104,10 @@ Effect.runPromise(
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
     Effect.catchAllCause((cause) => {
-      console.log("Recovered from defect:", cause.toString());
+      console.log('Recovered from defect:', cause.toString());
       return Effect.log(
-        `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`
+        `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`,
       );
-    })
-  )
+    }),
+  ),
 );
