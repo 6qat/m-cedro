@@ -5,11 +5,14 @@ import {
   Duration,
   Effect,
   Fiber,
-  Stream,
-  pipe,
   Metric,
   MetricBoundaries,
   Clock,
+  Schedule,
+  Sink,
+  Chunk,
+  Stream,
+  pipe,
 } from 'effect';
 
 import type { TcpStream } from './tcp-stream';
@@ -40,84 +43,68 @@ const program = Effect.gen(function* () {
     Metric.tagged('source', 'tcp_stream'),
   );
 
-  // Track message rate over time using a counter with a timestamp
-  let lastTimestamp = Date.now();
-  let lastCount = 0;
-
-  // Track processing time using a simple average
-  let totalProcessingTime = 0;
-  let processedCount = 0;
-
-  // Periodically publish metrics to Redis
-  const logMetrics = yield* Effect.gen(function* () {
-    while (true) {
-      const now = Date.now();
-      const currentCount = yield* Metric.value(messageCounter);
-      const timeElapsed = (now - lastTimestamp) / 1000; // in seconds
-      const messagesProcessed = currentCount.count - lastCount;
-
-      // Calculate messages per second
-      const messagesPerSecond =
-        timeElapsed > 0 ? messagesProcessed / timeElapsed : 0;
-
-      // Calculate average processing time
-      const avgProcessingTime =
-        processedCount > 0
-          ? (totalProcessingTime / processedCount).toFixed(2)
-          : '0';
-
-      // Create metrics object
-      const metrics = {
-        timestamp: now,
-        messageRate: messagesPerSecond,
-        totalMessages: currentCount.count,
-        avgProcessingTime: Number.parseFloat(avgProcessingTime),
-        messagesProcessed: messagesProcessed,
-      };
-
-      // Publish metrics to Redis
-      yield* Redis.publish('metrics', JSON.stringify(metrics));
-
-      // Update for next interval
-      lastTimestamp = now;
-      lastCount = currentCount.count;
-
-      // Reset processing time metrics for next interval
-      totalProcessingTime = 0;
-      processedCount = 0;
-
-      yield* Effect.sleep(Duration.seconds(5));
-    }
-  }).pipe(Effect.fork);
-
-  // Start reading from the TCP connection
-  const readerFiber = yield* pipe(
+  // Each TCP chunk → publish → return its processing-time (ms)
+  const timedStream = pipe(
     connection.stream,
-    // Measure message rate and processing time
     Stream.tap(() => Metric.increment(messageCounter)),
     Stream.mapEffect((data) =>
       Effect.gen(function* () {
-        const start = yield* Clock.currentTimeMillis;
-
-        // Process the message here
+        const t0 = yield* Clock.currentTimeMillis;
         yield* Redis.publish('winfut', new TextDecoder().decode(data));
-
-        const end = yield* Clock.currentTimeMillis;
-        const duration = end - start;
-
-        // Update processing time metrics
-        totalProcessingTime += duration;
-        processedCount++;
-
-        return data; // Pass through the original data
+        const t1 = yield* Clock.currentTimeMillis;
+        return t1 - t0; // processing time of *this* message
       }),
     ),
-    Stream.runDrain,
-    Effect.fork,
+  );
+
+  // Fold that keeps running totals for a window
+  type Stats = {
+    readonly count: number;
+    readonly totalMillis: number;
+  };
+  // (1) collect messages for ≤5 s OR ≤1 M items
+  const windowed = pipe(
+    timedStream,
+    Stream.groupedWithin(1_000_000, Duration.seconds(5)),
+    Stream.map((times) => {
+      const count = Chunk.size(times);
+      const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
+      return { count, totalMillis };
+    }),
+  );
+
+  // (2) map the aggregated Stats → metrics object and publish
+  const metricsStream = pipe(
+    windowed,
+    Stream.mapEffect(({ count, totalMillis }) =>
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const windowCount = count;
+        const lifetime = yield* Metric.value(messageCounter);
+        const windowRate = windowCount / 5;
+        const avgProcTime =
+          windowCount > 0 ? Number((totalMillis / windowCount).toFixed(2)) : 0;
+        const metrics = {
+          timestamp: now,
+          windowCount, // msgs in this window
+          totalCount: lifetime.count,
+          messageRate: windowRate,
+          avgProcessingTime: avgProcTime,
+        };
+        yield* Redis.publish('metrics', JSON.stringify(metrics));
+        return metrics;
+      }),
+    ),
+  );
+
+  // Run both streams
+  yield* pipe(
+    Stream.runDrain(metricsStream),
+    Effect.fork, // metrics publisher
   );
 
   // Ensure metrics logging is cleaned up
-  yield* Effect.addFinalizer(() => Fiber.interrupt(logMetrics));
+  // yield* Effect.addFinalizer(() => Fiber.interrupt(logMetrics));
 
   // Send credentials immediately after connection is established
   yield* connection.sendText(`${config.magicToken}\n`);
