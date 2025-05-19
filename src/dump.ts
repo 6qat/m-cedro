@@ -67,7 +67,7 @@ const program = Effect.gen(function* () {
   );
 
   // (1) collect messages for ≤5 s OR ≤1 M items
-  const windowTime = 0.5; // seconds
+  const windowTime = 1; // seconds
   const windowedStream = pipe(
     messageProcessingStream,
     Stream.groupedWithin(1_000_000, Duration.seconds(windowTime)),
@@ -78,15 +78,31 @@ const program = Effect.gen(function* () {
     }),
   );
 
-  // (2) map the aggregated Stats → metrics object and publish
-  const metricsStream = pipe(
+  // (2) add a messages/second moving average over the last N windows
+  const rateWindowSize = 10; // number of windows to average
+  const rateStream = pipe(
     windowedStream,
-    Stream.mapEffect(({ count, totalMillis }) =>
+    Stream.map(({ count, totalMillis }) => ({
+      count,
+      totalMillis,
+      rate: count / windowTime,
+    })),
+    Stream.mapAccum([] as number[], (rates, { count, totalMillis, rate }) => {
+      const nextRates = [...rates, rate];
+      if (nextRates.length > rateWindowSize) nextRates.shift();
+      const movingAvg = nextRates.reduce((a, b) => a + b, 0) / nextRates.length;
+      return [nextRates, { count, totalMillis, rate, movingAvg }] as const;
+    }),
+  );
+  // (3) map rateStream → metrics object and publish
+  const metricsStream = pipe(
+    rateStream,
+    Stream.mapEffect(({ count, totalMillis, movingAvg }) =>
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis;
         const windowCount = count;
         const lifetime = yield* Metric.value(messageCounter);
-        const windowRate = windowCount / windowTime; // msgs/s in windowTime window
+        const windowRate = movingAvg; // msgs/s in windowTime window
         const avgProcTime =
           windowCount > 0 ? Number((totalMillis / windowCount).toFixed(2)) : 0;
         const metrics = {
