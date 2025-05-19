@@ -1,22 +1,12 @@
-import {
-  Effect,
-  Stream,
-  Queue,
-  pipe,
-  Console,
-  Fiber,
-  Duration,
-  Config,
-  Layer,
-} from 'effect';
-import { BunRuntime } from '@effect/platform-bun';
+import { NodeRuntime } from '@effect/platform-node';
+import { Config, Console, Duration, Effect, Fiber, Stream, pipe } from 'effect';
 
-import { createTcpConnection } from '@6qat/tcp-connection';
-import type { TcpConnection } from '@6qat/tcp-connection';
-import type { ConnectionConfig } from './connection-config';
+import type { TcpStream } from './tcp-stream';
+import { createTcpStream } from './tcp-stream';
 import readline from 'node:readline';
+import type { ConnectionConfig } from './connection-config';
 
-import { Redis } from './redis/redis';
+import * as Redis from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
@@ -29,7 +19,7 @@ const program = Effect.gen(function* () {
     tickers: ['WINM25', 'WDOK25'],
   };
 
-  const connection: TcpConnection = yield* createTcpConnection({
+  const connection: TcpStream = yield* createTcpStream({
     host: config.host,
     port: config.port,
   });
@@ -105,9 +95,9 @@ const program = Effect.gen(function* () {
   yield* Fiber.join(readerFiber);
 });
 
-BunRuntime.runMain(
+NodeRuntime.runMain(
   pipe(
-    Effect.scoped(Effect.provide(program, Redis.layer())),
+    Effect.scoped(Effect.provide(program, Redis.redisLayer())),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),

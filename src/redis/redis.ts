@@ -6,15 +6,15 @@ export class RedisError extends Data.TaggedError('RedisError')<{
   message: string;
 }> {}
 
-interface RedisImpl {
+interface RedisShape {
   use: <T>(
     fn: (client: ReturnType<typeof createClient>) => T,
   ) => Effect.Effect<Awaited<T>, RedisError, never>;
 }
 
-class RedisTag extends Context.Tag('Redis')<RedisTag, RedisImpl>() {}
+class Redis extends Context.Tag('Redis')<Redis, RedisShape>() {}
 
-const make = (options?: Parameters<typeof createClient>[0]) =>
+const bootstrapRedisEffect = (options?: Parameters<typeof createClient>[0]) =>
   Effect.gen(function* () {
     // Try Redis connection within an Effect
     const client = yield* Effect.acquireRelease(
@@ -25,8 +25,8 @@ const make = (options?: Parameters<typeof createClient>[0]) =>
       (client) => Effect.promise(() => client.quit()),
     );
 
-    // Return the RedisImpl interface
-    return RedisTag.of({
+    // Return the RedisShape interface
+    return Redis.of({
       use: (fn) =>
         Effect.gen(function* () {
           const result = yield* Effect.try({
@@ -52,40 +52,40 @@ const make = (options?: Parameters<typeof createClient>[0]) =>
     });
   });
 
-const layer = (options?: Parameters<typeof createClient>[0]) =>
-  Layer.scoped(RedisTag, make(options));
+const redisLayer = (options?: Parameters<typeof createClient>[0]) =>
+  Layer.scoped(Redis, bootstrapRedisEffect(options));
 
 const fromEnv = Layer.scoped(
-  RedisTag,
+  Redis,
   Effect.gen(function* () {
     const url = yield* Config.string('REDIS_URL');
-    return yield* make({ url });
+    return yield* bootstrapRedisEffect({ url });
   }),
 );
 
 // Example: Effectful Redis commands
 const set = (key: string, value: string) =>
   Effect.gen(function* () {
-    const redis = yield* RedisTag;
+    const redis = yield* Redis;
     yield* redis.use((client) => client.set(key, value));
   });
 
 const get = (key: string) =>
   Effect.gen(function* () {
-    const redis = yield* RedisTag;
+    const redis = yield* Redis;
     return yield* redis.use((client) => client.get(key));
   });
 
 const del = (key: string) =>
   Effect.gen(function* () {
-    const redis = yield* RedisTag;
+    const redis = yield* Redis;
     yield* redis.use((client) => client.del(key));
   });
 
 const publish = (channel: string, message: string) =>
   Effect.gen(function* () {
-    const redis = yield* RedisTag;
+    const redis = yield* Redis;
     yield* redis.use((client) => client.publish(channel, message));
   });
 
-export const Redis = { set, get, del, publish, layer, fromEnv };
+export { Redis, set, get, del, publish, redisLayer, fromEnv };
