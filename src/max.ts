@@ -41,8 +41,11 @@ const program = Effect.gen(function* () {
   yield* pipe(
     stream,
     Stream.map(parseCedroMessage),
+    Stream.filter((msg) => msg.lastTradeDate !== undefined),
     Stream.mapEffect((msg) =>
       Effect.gen(function* () {
+        // TODO: solve this
+        const _lastTradeDate = msg.lastTradeDate || ''; // the filter above garantees this
         const now = yield* Clock.currentTimeMillis;
         const { day, week, month } = getPeriods(now);
         const state = yield* Ref.get(stateRef);
@@ -60,11 +63,6 @@ const program = Effect.gen(function* () {
         return newState;
       }),
     ),
-    // Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) =>
-    //   Effect.log(
-    //     `Highest lastTradePrice for day ${day}: ${maxDay}; week ${week}: ${maxWeek}; month ${month}: ${maxMonth}`,
-    //   ),
-    // ),
     Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) => {
       const e = Effect.tryPromise(() => createClient().connect());
       return Effect.map(e, (client) => {
