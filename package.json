@@ -10,8 +10,9 @@
     "dev:convex": "convex dev",
     "dev:server": "bun run index.ts",
     "dev": "concurrently \"bun run dev:convex\" \"bun run dev:server\"",
-    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile bin/out ./src/index.ts",
-    "build:dump:arm": "bun build --minify-whtespace --minify-syntax --outdir . ./src/dump.ts"
+    "build": "bun build --compile --minify-whtespace --minify-syntax --target bun --outfile out ./src/dump.ts",
+    "build:linux": "bun build --compile --minify-whitespace --minify-syntax --target bun-linux-x64 --outfile out-linux ./src/dump.ts",
+    "build:linux:arm": "bun build --compile --minify-whitespace --minify-syntax --target bun-linux-arm64 --outfile out-linux-arm ./src/dump.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

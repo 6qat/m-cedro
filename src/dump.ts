@@ -1,4 +1,4 @@
-import { NodeRuntime } from '@effect/platform-node';
+import { BunRuntime } from '@effect/platform-bun';
 import {
   Chunk,
   Clock,
@@ -185,7 +185,7 @@ const program = Effect.gen(function* () {
   yield* connection.close;
 });
 
-NodeRuntime.runMain(
+BunRuntime.runMain(
   pipe(
     Effect.scoped(Effect.provide(program, Redis.redisLayer())),
     Effect.catchAll((error) => {

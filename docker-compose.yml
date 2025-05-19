@@ -14,10 +14,9 @@ services:
       - CEDRO_USERNAME=${CEDRO_USERNAME}
       - CEDRO_PASSWORD=${CEDRO_PASSWORD}
       - CEDRO_TOKEN=${CEDRO_TOKEN}
-
+    network_mode: host
     stdin_open: true
     tty: true
-
     volumes:
       - ./dumps:/app/dumps
 
