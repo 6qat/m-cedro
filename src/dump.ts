@@ -1,24 +1,19 @@
 import { NodeRuntime } from '@effect/platform-node';
 import {
+  Chunk,
+  Clock,
   Config,
-  Console,
   Duration,
   Effect,
-  Fiber,
   Metric,
-  MetricBoundaries,
-  Clock,
-  Schedule,
-  Sink,
-  Chunk,
   Stream,
   pipe,
 } from 'effect';
 
-import type { TcpStream } from './tcp-stream';
-import { createTcpStream } from './tcp-stream';
 import readline from 'node:readline';
 import type { ConnectionConfig } from './connection-config';
+import type { TcpStream } from './tcp-stream';
+import { createTcpStream } from './tcp-stream';
 
 import * as Redis from './redis/redis';
 
@@ -43,29 +38,39 @@ const program = Effect.gen(function* () {
     Metric.tagged('source', 'tcp_stream'),
   );
 
-  // Each TCP chunk → publish → return its processing-time (ms)
-  const timedStream = pipe(
+  const messageStream = pipe(
     connection.stream,
+    Stream.map((chunk) => new TextDecoder().decode(chunk)),
+    Stream.mapAccum(
+      '' as string, // initial buffer
+      (buffer, text) => {
+        const combined = buffer + text;
+        const parts = combined.split('\r\n'); // split on your delimiter
+        const leftover = parts.pop() ?? ''; // last element may be incomplete
+        return [leftover, parts] as const; // new buffer + array of full messages
+      },
+    ),
+    Stream.flatMap((msgs) => Stream.fromIterable(msgs)),
+  );
+
+  const messageProcessingStream = pipe(
+    messageStream,
     Stream.tap(() => Metric.increment(messageCounter)),
-    Stream.mapEffect((data) =>
+    Stream.mapEffect((message) =>
       Effect.gen(function* () {
         const t0 = yield* Clock.currentTimeMillis;
-        yield* Redis.publish('winfut', new TextDecoder().decode(data));
+        yield* Redis.publish('winfut', message);
         const t1 = yield* Clock.currentTimeMillis;
-        return t1 - t0; // processing time of *this* message
+        return t1 - t0;
       }),
     ),
   );
 
-  // Fold that keeps running totals for a window
-  type Stats = {
-    readonly count: number;
-    readonly totalMillis: number;
-  };
   // (1) collect messages for ≤5 s OR ≤1 M items
-  const windowed = pipe(
-    timedStream,
-    Stream.groupedWithin(1_000_000, Duration.seconds(5)),
+  const windowTime = 0.5; // seconds
+  const windowedStream = pipe(
+    messageProcessingStream,
+    Stream.groupedWithin(1_000_000, Duration.seconds(windowTime)),
     Stream.map((times) => {
       const count = Chunk.size(times);
       const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
@@ -75,18 +80,19 @@ const program = Effect.gen(function* () {
 
   // (2) map the aggregated Stats → metrics object and publish
   const metricsStream = pipe(
-    windowed,
+    windowedStream,
     Stream.mapEffect(({ count, totalMillis }) =>
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis;
         const windowCount = count;
         const lifetime = yield* Metric.value(messageCounter);
-        const windowRate = windowCount / 5;
+        const windowRate = windowCount / windowTime; // msgs/s in windowTime window
         const avgProcTime =
           windowCount > 0 ? Number((totalMillis / windowCount).toFixed(2)) : 0;
         const metrics = {
           timestamp: now,
-          windowCount, // msgs in this window
+          windowCount, // msgs in this window,
+          windowTime,
           totalCount: lifetime.count,
           messageRate: windowRate,
           avgProcessingTime: avgProcTime,
@@ -161,7 +167,6 @@ const program = Effect.gen(function* () {
 
   // When stdin closes, clean up TCP connection
   yield* connection.close;
-  yield* Fiber.join(readerFiber);
 });
 
 NodeRuntime.runMain(
