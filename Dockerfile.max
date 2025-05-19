@@ -1,0 +1,33 @@
+# docker build -t ceschiatti/m-cedro:latest .
+# docker run -e CEDRO_USERNAME="$CEDRO_USERNAME" -e CEDRO_PASSWORD="$CEDRO_PASSWORD" -e CEDRO_TOKEN="$CEDRO_TOKEN" --restart always -v $(pwd)/dumps:/app/dumps --rm --name m-cedro ceschiatti/m-cedro
+# docker exec -it m-cedro bash
+# docker image prune -a -f
+
+FROM oven/bun:latest AS builder
+WORKDIR /app
+
+# Copy package files and modify dependency for Docker
+COPY package.json .
+
+# Install dependencies
+RUN bun --frozen-lockfile install --production
+
+# Copy source code
+COPY src ./src
+
+# Production stage
+FROM oven/bun:alpine AS production
+WORKDIR /app
+
+# Copy only the necessary files from the builder stage
+COPY --from=builder /app/package.json .
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/src ./src
+
+# Set non-root user for security
+USER bun
+
+# Set NODE_ENV environment variable
+ENV NODE_ENV=production
+
+CMD ["bun", "src/max.ts"]

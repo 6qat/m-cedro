@@ -20,6 +20,15 @@ services:
     volumes:
       - ./dumps:/app/dumps
 
+  max:
+    profiles: [ "max", "all" ]
+    build:
+      context: .
+      dockerfile: Dockerfile.max
+    network_mode: host
+    stdin_open: true
+    tty: true
+
   websocket-server-1:
     profiles: [ "websocket", "all" ]
     build:

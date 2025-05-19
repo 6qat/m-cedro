@@ -1,22 +1,80 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Effect, Queue, Stream, pipe } from 'effect';
+import { Effect, Queue, Stream, pipe, Ref, Clock, DateTime } from 'effect';
 import * as Redis from './redis/redis';
+import { createClient } from 'redis';
 import { parseCedroMessage } from './cedro/cedroParser';
+
+const getIsoWeekString = (date: Date): string => {
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+  );
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(
+    ((d.valueOf() - yearStart.valueOf()) / 86400000 + 1) / 7,
+  );
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+};
+
+const getPeriods = (ms: number) => {
+  const date = new Date(ms);
+  const day = date.toISOString().slice(0, 10);
+  const week = getIsoWeekString(date);
+  const month = date.toISOString().slice(0, 7);
+  return { day, week, month };
+};
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
   yield* Redis.subscribe('winfut', (message: string) => {
     Queue.unsafeOffer(incomingQueue, message);
   });
+  const stateRef = yield* Ref.make<{
+    day: string;
+    maxDay: number;
+    week: string;
+    maxWeek: number;
+    month: string;
+    maxMonth: number;
+  }>({ day: '', maxDay: 0, week: '', maxWeek: 0, month: '', maxMonth: 0 });
   const stream = Stream.fromQueue(incomingQueue);
   yield* pipe(
     stream,
     Stream.map(parseCedroMessage),
-    Stream.map((msg) => msg.lastTradePrice ?? 0),
-    Stream.scan(0, (maxSoFar, price) => (price > maxSoFar ? price : maxSoFar)),
-    Stream.tap((currentMax) =>
-      Effect.log(`Highest lastTradePrice: ${currentMax}`)
+    Stream.mapEffect((msg) =>
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const { day, week, month } = getPeriods(now);
+        const state = yield* Ref.get(stateRef);
+        const price = msg.lastTradePrice ?? 0;
+        const newState = {
+          day,
+          maxDay: state.day !== day ? price : Math.max(state.maxDay, price),
+          week,
+          maxWeek: state.week !== week ? price : Math.max(state.maxWeek, price),
+          month,
+          maxMonth:
+            state.month !== month ? price : Math.max(state.maxMonth, price),
+        };
+        yield* Ref.set(stateRef, newState);
+        return newState;
+      }),
     ),
+    // Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) =>
+    //   Effect.log(
+    //     `Highest lastTradePrice for day ${day}: ${maxDay}; week ${week}: ${maxWeek}; month ${month}: ${maxMonth}`,
+    //   ),
+    // ),
+    Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) => {
+      const e = Effect.tryPromise(() => createClient().connect());
+      return Effect.map(e, (client) => {
+        client.publish(
+          'max',
+          JSON.stringify({ day, maxDay, week, maxWeek, month, maxMonth }),
+        );
+        client.quit();
+      });
+    }),
     Stream.runDrain,
     Effect.fork,
   );
