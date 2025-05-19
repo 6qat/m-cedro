@@ -88,4 +88,10 @@ const publish = (channel: string, message: string) =>
     yield* redis.use((client) => client.publish(channel, message));
   });
 
-export { Redis, set, get, del, publish, redisLayer, fromEnv };
+const subscribe = (channel: string, handler: (message: string) => void) =>
+  Effect.gen(function* () {
+    const redis = yield* Redis;
+    yield* redis.use((client) => client.subscribe(channel, handler));
+  });
+
+export { Redis, set, get, del, publish, subscribe, redisLayer, fromEnv };
