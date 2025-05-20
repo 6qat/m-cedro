@@ -1,8 +1,7 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Effect, Queue, Stream, pipe, Ref, Clock, DateTime } from 'effect';
-import * as Redis from './redis/redis';
-import { createClient } from 'redis';
+import { Effect, Queue, Stream, pipe, Ref, Clock } from 'effect';
 import { parseCedroMessage } from './cedro/cedroParser';
+import { redisPubSubLayer, RedisPubSub } from './redis/redis';
 
 const getIsoWeekString = (date: Date): string => {
   const d = new Date(
@@ -26,7 +25,8 @@ const getPeriods = (ms: number) => {
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
-  yield* Redis.subscribe('winfut', (message: string) => {
+  const redisPubSub = yield* RedisPubSub;
+  yield* redisPubSub.subscribe('winfut', (message: string) => {
     Queue.unsafeOffer(incomingQueue, message);
   });
   const stateRef = yield* Ref.make<{
@@ -63,20 +63,18 @@ const program = Effect.gen(function* () {
         return newState;
       }),
     ),
-    Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) => {
-      const e = Effect.tryPromise(() => createClient().connect());
-      return Effect.map(e, (client) => {
-        client.publish(
-          'max',
-          JSON.stringify({ day, maxDay, week, maxWeek, month, maxMonth }),
-        );
-        client.quit();
-      });
-    }),
+    Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) =>
+      redisPubSub.publish(
+        'max',
+        JSON.stringify({
+          max: { day, maxDay, week, maxWeek, month, maxMonth },
+        }),
+      ),
+    ),
     Stream.runDrain,
     Effect.fork,
   );
   yield* Effect.never;
 });
 
-BunRuntime.runMain(Effect.provide(program, Redis.redisLayer()));
+BunRuntime.runMain(Effect.provide(program, redisPubSubLayer()));

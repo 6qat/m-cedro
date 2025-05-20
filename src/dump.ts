@@ -16,9 +16,11 @@ import type { TcpStream } from './tcp-stream';
 import { createTcpStream } from './tcp-stream';
 
 import * as Redis from './redis/redis';
+import { RedisPubSub } from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
+  const redisPubSub = yield* Redis.RedisPubSub;
   const config: ConnectionConfig = {
     host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
@@ -59,7 +61,7 @@ const program = Effect.gen(function* () {
     Stream.mapEffect((message) =>
       Effect.gen(function* () {
         const t0 = yield* Clock.currentTimeMillis;
-        yield* Redis.publish('winfut', message);
+        yield* redisPubSub.publish('winfut', message);
         const t1 = yield* Clock.currentTimeMillis;
         return t1 - t0;
       }),
@@ -113,7 +115,7 @@ const program = Effect.gen(function* () {
           messageRate: windowRate,
           avgProcessingTime: avgProcTime,
         };
-        yield* Redis.publish('metrics', JSON.stringify(metrics));
+        yield* redisPubSub.publish('metrics', JSON.stringify(metrics));
         return metrics;
       }),
     ),
@@ -187,7 +189,7 @@ const program = Effect.gen(function* () {
 
 BunRuntime.runMain(
   pipe(
-    Effect.scoped(Effect.provide(program, Redis.redisLayer())),
+    Effect.scoped(Effect.provide(program, Redis.redisPubSubLayer())),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),

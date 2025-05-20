@@ -12,7 +12,23 @@ interface RedisShape {
   ) => Effect.Effect<Awaited<T>, RedisError, never>;
 }
 
+interface RedisPubSubShape {
+  publish: (
+    channel: string,
+    message: string,
+  ) => Effect.Effect<void, RedisError, never>;
+  subscribe: (
+    channel: string,
+    handler: (message: string) => void,
+  ) => Effect.Effect<void, RedisError, never>;
+}
+
 class Redis extends Context.Tag('Redis')<Redis, RedisShape>() {}
+
+class RedisPubSub extends Context.Tag('RedisPubSub')<
+  RedisPubSub,
+  RedisPubSubShape
+>() {}
 
 const bootstrapRedisEffect = (options?: Parameters<typeof createClient>[0]) =>
   Effect.gen(function* () {
@@ -52,8 +68,81 @@ const bootstrapRedisEffect = (options?: Parameters<typeof createClient>[0]) =>
     });
   });
 
+const bootstrapRedisPubSubEffect = (
+  options?: Parameters<typeof createClient>[0],
+) =>
+  Effect.gen(function* () {
+    // Try Redis connection within an Effect
+    const clientPublish = yield* Effect.acquireRelease(
+      Effect.tryPromise({
+        try: () => createClient(options).connect(),
+        catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
+      }),
+      (client) => Effect.promise(() => client.quit()),
+    );
+
+    const clientSubscribe = yield* Effect.acquireRelease(
+      Effect.tryPromise({
+        try: () => createClient(options).connect(),
+        catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
+      }),
+      (client) => Effect.promise(() => client.quit()),
+    );
+
+    // Return the RedisShape interface
+    return RedisPubSub.of({
+      publish: (channel, message) =>
+        Effect.gen(function* () {
+          const result = yield* Effect.try({
+            try: () => clientPublish.publish(channel, message),
+            catch: (e) =>
+              new RedisError({
+                cause: e,
+                message: 'Syncronous error in `Redis.publish`',
+              }),
+          });
+          if (result instanceof Promise) {
+            return yield* Effect.tryPromise({
+              try: () => result,
+              catch: (e) =>
+                new RedisError({
+                  cause: e,
+                  message: 'Asyncronous error in `Redis.publish`',
+                }),
+            });
+          }
+          return result;
+        }),
+      subscribe: (channel, handler) =>
+        Effect.gen(function* () {
+          const result = yield* Effect.try({
+            try: () => clientSubscribe.subscribe(channel, handler),
+            catch: (e) =>
+              new RedisError({
+                cause: e,
+                message: 'Syncronous error in `Redis.subscribe`',
+              }),
+          });
+          if (result instanceof Promise) {
+            return yield* Effect.tryPromise({
+              try: () => result,
+              catch: (e) =>
+                new RedisError({
+                  cause: e,
+                  message: 'Asyncronous error in `Redis.subscribe`',
+                }),
+            });
+          }
+          return result;
+        }),
+    });
+  });
+
 const redisLayer = (options?: Parameters<typeof createClient>[0]) =>
   Layer.scoped(Redis, bootstrapRedisEffect(options));
+
+const redisPubSubLayer = (options?: Parameters<typeof createClient>[0]) =>
+  Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect(options));
 
 const fromEnv = Layer.scoped(
   Redis,
@@ -94,4 +183,15 @@ const subscribe = (channel: string, handler: (message: string) => void) =>
     yield* redis.use((client) => client.subscribe(channel, handler));
   });
 
-export { Redis, set, get, del, publish, subscribe, redisLayer, fromEnv };
+export {
+  Redis,
+  RedisPubSub,
+  set,
+  get,
+  del,
+  publish,
+  subscribe,
+  redisLayer,
+  redisPubSubLayer,
+  fromEnv,
+};
