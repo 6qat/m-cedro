@@ -5,6 +5,12 @@
 # wscat -c ws://localhost:3030
 
 services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    restart: always
+
   dump:
     profiles: [ "dump", "all" ]
     build:
@@ -17,8 +23,11 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
+    restart: always
     volumes:
       - ./dumps:/app/dumps
+    depends_on:
+      - redis
 
   max:
     profiles: [ "max", "all" ]
@@ -28,6 +37,9 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
+    restart: always
+    depends_on:
+      - redis
 
   winfut:
     profiles: [ "winfut", "all" ]
@@ -37,6 +49,9 @@ services:
     network_mode: host
     stdin_open: true
     tty: true
+    restart: always
+    depends_on:
+      - redis
 
   websocket-server-1:
     profiles: [ "websocket", "all" ]

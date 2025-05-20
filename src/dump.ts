@@ -20,6 +20,7 @@ import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 // Usage example
 const program = Effect.gen(function* () {
   const redisPubSub = yield* RedisPubSub;
+
   const config: ConnectionConfig = {
     host: 'datafeedcd3.cedrotech.com', // Replace with your host
     port: 81, // Replace with your port
@@ -60,6 +61,7 @@ const program = Effect.gen(function* () {
     Stream.mapEffect((message) =>
       Effect.gen(function* () {
         const t0 = yield* Clock.currentTimeMillis;
+        yield* Effect.log(message);
         yield* redisPubSub.publish('raw', message);
         const t1 = yield* Clock.currentTimeMillis;
         return t1 - t0;
