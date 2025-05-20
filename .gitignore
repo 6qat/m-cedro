@@ -41,3 +41,4 @@ bin/
 dumps/
 build/
 credentials.ts
+redis-data

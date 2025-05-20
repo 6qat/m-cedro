@@ -1,22 +1,47 @@
-import { Duration, Effect, Fiber, Queue, Ref, Stream, pipe } from 'effect';
+import {
+  Context,
+  Duration,
+  Config,
+  Effect,
+  Fiber,
+  Layer,
+  Queue,
+  Ref,
+  Stream,
+  pipe,
+} from 'effect';
 
 // =========================================================================
 // TCP Connection with Write support
 // =========================================================================
-export interface TcpStream {
+export interface TcpStreamShape {
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
   readonly sendText: (data: string) => Effect.Effect<void>;
   readonly close: Effect.Effect<void>;
 }
 
-export const createTcpStream = (options: {
+class TcpStream extends Context.Tag('TcpStream')<TcpStream, TcpStreamShape>() {}
+
+interface ConnectionConfigShape {
   host: string;
   port: number;
-  timeout?: Duration.Duration;
-}): Effect.Effect<TcpStream, Error> => {
+  magicToken?: string;
+  username?: string;
+  password?: string;
+  tickers?: string[];
+}
+
+class ConnectionConfig extends Context.Tag('ConnectionConfig')<
+  ConnectionConfig,
+  ConnectionConfigShape
+>() {}
+
+export const createTcpStream = () => {
   return Effect.scoped(
     Effect.gen(function* () {
+      const config = yield* ConnectionConfig;
+
       // Create queues for incoming and outgoing data
       const incomingQueue = yield* Queue.unbounded<Uint8Array>();
       const outgoingQueue = yield* Queue.unbounded<Uint8Array>();
@@ -49,8 +74,8 @@ export const createTcpStream = (options: {
       // Create deferred for connection cleanup
       const bunSocket = yield* Effect.tryPromise(() =>
         Bun.connect({
-          port: options.port,
-          hostname: options.host,
+          port: config.port,
+          hostname: config.host,
           socket: {
             data(_socket, data) {
               Queue.unsafeOffer(incomingQueue, data);
@@ -65,7 +90,7 @@ export const createTcpStream = (options: {
           },
         }),
       ).pipe(
-        Effect.timeout(options.timeout ?? Duration.millis(3000)),
+        Effect.timeout(Duration.millis(3000)),
         Effect.flatMap((maybeSocket) =>
           maybeSocket
             ? Effect.succeed(maybeSocket)
@@ -132,3 +157,23 @@ export const createTcpStream = (options: {
     }),
   );
 };
+
+const TcpStreamLive = () => Layer.scoped(TcpStream, createTcpStream());
+
+const ConnectionConfigLive = (host: string, port: number, tickers: string[]) =>
+  Layer.scoped(
+    ConnectionConfig,
+    Effect.gen(function* () {
+      const config: ConnectionConfigShape = {
+        host,
+        port,
+        magicToken: yield* Config.string('CEDRO_TOKEN'),
+        username: yield* Config.string('CEDRO_USERNAME'),
+        password: yield* Config.string('CEDRO_PASSWORD'),
+        tickers,
+      };
+      return config;
+    }),
+  );
+
+export { TcpStreamLive, TcpStream, ConnectionConfigLive, ConnectionConfig };

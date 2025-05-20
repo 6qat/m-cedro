@@ -42,7 +42,7 @@ const program = Effect.gen(function* () {
     stream,
     Stream.map(parseCedroMessage),
     // Stream.tap((msg) => Effect.log(msg)),
-    Stream.filter((msg) => msg.lastTradeDate !== undefined),
+    // Stream.filter((msg) => msg.lastTradeDate !== undefined),
     Stream.mapEffect((msg) =>
       Effect.gen(function* () {
         // TODO: solve this

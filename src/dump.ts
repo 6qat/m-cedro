@@ -5,15 +5,20 @@ import {
   Config,
   Duration,
   Effect,
+  Layer,
   Metric,
   Stream,
   pipe,
 } from 'effect';
 
 import readline from 'node:readline';
-import type { ConnectionConfig } from './connection-config';
-import type { TcpStream } from './tcp-stream';
-import { createTcpStream } from './tcp-stream';
+import {
+  createTcpStream,
+  TcpStream,
+  TcpStreamLive,
+  ConnectionConfigLive,
+  ConnectionConfig,
+} from './tcp-stream';
 
 import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 
@@ -21,19 +26,9 @@ import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 const program = Effect.gen(function* () {
   const redisPubSub = yield* RedisPubSub;
 
-  const config: ConnectionConfig = {
-    host: 'datafeedcd3.cedrotech.com', // Replace with your host
-    port: 81, // Replace with your port
-    magicToken: yield* Config.string('CEDRO_TOKEN'), // Replace with your magic token
-    username: yield* Config.string('CEDRO_USERNAME'), // Replace with your username
-    password: yield* Config.string('CEDRO_PASSWORD'), // Replace with your password
-    tickers: ['WINM25', 'WDOK25'],
-  };
+  const config = yield* ConnectionConfig;
 
-  const connection: TcpStream = yield* createTcpStream({
-    host: config.host,
-    port: config.port,
-  });
+  const connection = yield* TcpStream;
 
   // Define metrics for message rate
   const messageCounter = Metric.counter('messages_received').pipe(
@@ -188,9 +183,19 @@ const program = Effect.gen(function* () {
   yield* connection.close;
 });
 
+const composition = Layer.provideMerge(
+  Layer.provideMerge(
+    TcpStreamLive(),
+    ConnectionConfigLive('datafeedcd3.cedrotech.com', 81, ['WINM25', 'WDOK25']),
+  ),
+  redisPubSubLayer(),
+);
+
+const runnable = program.pipe(Effect.provide(composition));
+
 BunRuntime.runMain(
   pipe(
-    Effect.scoped(Effect.provide(program, redisPubSubLayer())),
+    runnable,
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
