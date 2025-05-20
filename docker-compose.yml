@@ -29,6 +29,15 @@ services:
     stdin_open: true
     tty: true
 
+  winfut:
+    profiles: [ "winfut", "all" ]
+    build:
+      context: .
+      dockerfile: Dockerfile.winfut
+    network_mode: host
+    stdin_open: true
+    tty: true
+
   websocket-server-1:
     profiles: [ "websocket", "all" ]
     build:

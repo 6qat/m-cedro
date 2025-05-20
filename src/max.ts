@@ -41,6 +41,7 @@ const program = Effect.gen(function* () {
   yield* pipe(
     stream,
     Stream.map(parseCedroMessage),
+    // Stream.tap((msg) => Effect.log(msg)),
     Stream.filter((msg) => msg.lastTradeDate !== undefined),
     Stream.mapEffect((msg) =>
       Effect.gen(function* () {
@@ -66,9 +67,7 @@ const program = Effect.gen(function* () {
     Stream.tap(({ day, maxDay, week, maxWeek, month, maxMonth }) =>
       redisPubSub.publish(
         'max',
-        JSON.stringify({
-          max: { day, maxDay, week, maxWeek, month, maxMonth },
-        }),
+        JSON.stringify({ day, maxDay, week, maxWeek, month, maxMonth }),
       ),
     ),
     Stream.runDrain,
