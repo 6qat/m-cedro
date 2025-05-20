@@ -37,8 +37,10 @@ class ConnectionConfig extends Context.Tag('ConnectionConfig')<
   ConnectionConfigShape
 >() {}
 
-export const createTcpStream = () => {
-  return Effect.scoped(
+const TcpStreamLive = () =>
+  Layer.scoped(
+    TcpStream,
+
     Effect.gen(function* () {
       const config = yield* ConnectionConfig;
 
@@ -156,9 +158,6 @@ export const createTcpStream = () => {
       };
     }),
   );
-};
-
-const TcpStreamLive = () => Layer.scoped(TcpStream, createTcpStream());
 
 const ConnectionConfigLive = (host: string, port: number, tickers: string[]) =>
   Layer.scoped(
