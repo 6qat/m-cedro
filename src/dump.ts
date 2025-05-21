@@ -13,7 +13,6 @@ import {
 
 import readline from 'node:readline';
 import {
-  createTcpStream,
   TcpStream,
   TcpStreamLive,
   ConnectionConfigLive,
@@ -183,19 +182,33 @@ const program = Effect.gen(function* () {
   yield* connection.close;
 });
 
-const composition = Layer.provideMerge(
-  Layer.provideMerge(
-    TcpStreamLive(),
-    ConnectionConfigLive('datafeedcd3.cedrotech.com', 81, ['WINM25', 'WDOK25']),
-  ),
-  redisPubSubLayer(),
-);
+const layerComposition = Effect.gen(function* () {
+  const magicToken = yield* Config.string('CEDRO_TOKEN');
+  const username = yield* Config.string('CEDRO_USERNAME');
+  const password = yield* Config.string('CEDRO_PASSWORD');
+  return Layer.provideMerge(
+    Layer.provideMerge(
+      TcpStreamLive(),
+      ConnectionConfigLive(
+        'datafeedcd3.cedrotech.com',
+        81,
+        ['WINM25', 'WDOK25'],
+        magicToken,
+        username,
+        password,
+      ),
+    ),
+    redisPubSubLayer(),
+  );
+});
 
-const runnable = program.pipe(Effect.provide(composition));
+const run = layerComposition.pipe(
+  Effect.flatMap((layer) => program.pipe(Effect.provide(layer))),
+);
 
 BunRuntime.runMain(
   pipe(
-    runnable,
+    run,
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),

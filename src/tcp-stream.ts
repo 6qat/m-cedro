@@ -14,7 +14,7 @@ import {
 // =========================================================================
 // TCP Connection with Write support
 // =========================================================================
-export interface TcpStreamShape {
+interface TcpStreamShape {
   readonly stream: Stream.Stream<Uint8Array, Error>;
   readonly send: (data: Uint8Array) => Effect.Effect<void>;
   readonly sendText: (data: string) => Effect.Effect<void>;
@@ -159,19 +159,23 @@ const TcpStreamLive = () =>
     }),
   );
 
-const ConnectionConfigLive = (host: string, port: number, tickers: string[]) =>
+const ConnectionConfigLive = (
+  host: string,
+  port: number,
+  tickers: string[],
+  magicToken: string,
+  username: string,
+  password: string,
+) =>
   Layer.scoped(
     ConnectionConfig,
-    Effect.gen(function* () {
-      const config: ConnectionConfigShape = {
-        host,
-        port,
-        magicToken: yield* Config.string('CEDRO_TOKEN'),
-        username: yield* Config.string('CEDRO_USERNAME'),
-        password: yield* Config.string('CEDRO_PASSWORD'),
-        tickers,
-      };
-      return config;
+    Effect.succeed({
+      host,
+      port,
+      magicToken,
+      username,
+      password,
+      tickers,
     }),
   );
 
