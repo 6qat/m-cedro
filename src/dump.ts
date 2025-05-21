@@ -3,6 +3,7 @@ import {
   Chunk,
   Clock,
   Config,
+  Deferred,
   Duration,
   Effect,
   Layer,
@@ -19,7 +20,7 @@ import {
   ConnectionConfig,
 } from './tcp-stream';
 
-import { RedisPubSub, redisPubSubLayer } from './redis/redis';
+import { type RedisError, RedisPubSub, redisPubSubLayer } from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
@@ -151,6 +152,11 @@ const program = Effect.gen(function* () {
   };
   process.on('SIGINT', handleSignal);
   process.on('SIGTERM', handleSignal);
+  process.on('unhandledRejection', (reason, promise) => {
+    // console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // process.exit(1);
+    shutdown();
+  });
 
   // Setup readline interface for stdin
   const rl = readline.createInterface({
@@ -206,16 +212,23 @@ const run = layerComposition.pipe(
   Effect.flatMap((layer) => program.pipe(Effect.provide(layer))),
 );
 
+// process.on('uncaughtException', (error, origin) => {
+//   console.error('Uncaught Exception:', error);
+//   console.error('Exception origin:', origin);
+//   // Perform any cleanup if needed
+//   // process.exit(1); // Optional: exit after handling
+// });
+
 BunRuntime.runMain(
   pipe(
     run,
     Effect.catchAll((error) => {
-      return Effect.log(`🚫 Recovering from error ${error}`);
+      return Effect.logError(`🚫 Recovering from error ${error}`);
     }),
     Effect.catchAllCause((cause) => {
-      console.log('Recovered from defect:', cause.toString());
-      return Effect.log(
-        `💥 Recovering from defect ${JSON.stringify(cause.toJSON(), null, 2)}`,
+      // console.log('Recovered from defect:', cause.toString().split('\n')[0]);
+      return Effect.logError(
+        `💥 Recovering from defect(${cause.toString().split('\n')[0]}) ${JSON.stringify(cause.toJSON(), null, 2)}`,
       );
     }),
   ),

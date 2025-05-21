@@ -58,7 +58,7 @@ const TcpStreamLive = () =>
       const performShutdown = Effect.gen(function* () {
         const alreadyClosing = yield* Ref.getAndSet(isClosing, true);
         if (alreadyClosing) return;
-
+        yield* Effect.log('Closing TCP connection to Cedro');
         bunSocket.end();
 
         // Allow socket events to propagate
@@ -144,7 +144,6 @@ const TcpStreamLive = () =>
 
       // Cleanup procedure
       const close = Effect.gen(function* () {
-        console.log('Closing connection');
         yield* performShutdown;
       });
 
