@@ -1,4 +1,5 @@
 import { Config, Context, Data, Effect, Layer } from 'effect';
+import { getSystemErrorMap } from 'node:util';
 import { type RedisClientType, createClient } from 'redis';
 
 export class RedisError extends Data.TaggedError('RedisError')<{
@@ -73,17 +74,27 @@ const bootstrapRedisPubSubEffect = (
 ) =>
   Effect.gen(function* () {
     // Try Redis connection within an Effect
+    const beforePublishConnect = createClient(options);
+    beforePublishConnect.on('error', () => {
+      console.error('Redis error:');
+      process.exit(1);
+    });
     const clientPublish = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        try: () => createClient(options).connect(),
+        try: () => beforePublishConnect.connect(),
         catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
       }),
       (client) => Effect.promise(() => client.quit()),
     );
 
+    const beforeSubscribeConnect = createClient(options);
+    beforeSubscribeConnect.on('error', () => {
+      console.error('Redis error:');
+      process.exit(1);
+    });
     const clientSubscribe = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        try: () => createClient(options).connect(),
+        try: () => beforeSubscribeConnect.connect(),
         catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
       }),
       (client) => Effect.promise(() => client.quit()),
