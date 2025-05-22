@@ -31,10 +31,20 @@ interface Metrics {
   avgProcessingTime: number;
 }
 
+interface AggregatedMetrics {
+  timestamp: number;
+  minRate: number;
+  maxRate: number;
+  avgRate: number;
+  totalMessages: number;
+  windowCount: number;
+}
+
 const validateMetrics = (metrics: Metrics) => {
   if (metrics.windowCount < 0) return false;
   if (metrics.messageRate < 0) return false;
-  // Add more validation as needed
+  if (!Number.isFinite(metrics.avgProcessingTime)) return false;
+  if (metrics.timestamp > Date.now() + 1000) return false; // Future timestamp check
   return true;
 };
 
@@ -56,7 +66,7 @@ const program = Effect.gen(function* () {
     Queue.unsafeOffer(incomingQueue, message);
   });
 
-  const messageProcessingTimeStream = pipe(
+  const _messageProcessingTimeStream = pipe(
     stream,
     Stream.tap(() => Metric.increment(messageCounter)),
     Stream.mapEffect((message) =>
@@ -144,12 +154,12 @@ const program = Effect.gen(function* () {
 
       return {
         timestamp: Date.now(),
-        minRate,
-        maxRate,
-        avgRate: sumRate / metrics.length,
+        minRate: Number(minRate.toFixed(2)),
+        maxRate: Number(maxRate.toFixed(2)),
+        avgRate: Number((sumRate / metrics.length).toFixed(2)),
         totalMessages,
         windowCount: metrics.length,
-      };
+      } as unknown as AggregatedMetrics;
     }),
     Stream.filter(
       (metrics): metrics is NonNullable<typeof metrics> => metrics !== null,
@@ -167,6 +177,7 @@ const program = Effect.gen(function* () {
 
   const shutdown = Effect.gen(function* () {
     yield* Effect.log('Shutting down metrics service...');
+    yield* Effect.sleep(Duration.seconds(1)); // Give time for in-flight operations
     yield* Queue.shutdown(incomingQueue);
   });
 
