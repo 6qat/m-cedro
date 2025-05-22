@@ -1,6 +1,5 @@
 import { BunRuntime } from '@effect/platform-bun';
 import {
-  Chunk,
   Clock,
   Config,
   Duration,
@@ -29,11 +28,6 @@ const program = Effect.gen(function* () {
 
   const connection = yield* TcpStream;
 
-  // Define metrics for message rate
-  const messageCounter = Metric.counter('messages_received').pipe(
-    Metric.tagged('source', 'tcp_stream'),
-  );
-
   const messageStream = pipe(
     connection.stream,
     Stream.map((chunk) => new TextDecoder().decode(chunk)),
@@ -51,74 +45,17 @@ const program = Effect.gen(function* () {
 
   const messageProcessingStream = pipe(
     messageStream,
-    Stream.tap(() => Metric.increment(messageCounter)),
     Stream.mapEffect((message) =>
       Effect.gen(function* () {
-        const t0 = yield* Clock.currentTimeMillis;
         yield* Effect.log(message);
         yield* redisPubSub.publish('raw', message);
-        const t1 = yield* Clock.currentTimeMillis;
-        return t1 - t0;
-      }),
-    ),
-  );
-
-  // (1) collect messages for ≤5 s OR ≤1 M items
-  const windowTime = 1; // seconds
-  const windowedStream = pipe(
-    messageProcessingStream,
-    Stream.groupedWithin(1_000_000, Duration.seconds(windowTime)),
-    Stream.map((times) => {
-      const count = Chunk.size(times);
-      const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
-      return { count, totalMillis };
-    }),
-  );
-
-  // (2) add a messages/second moving average over the last N windows
-  const rateWindowSize = 10; // number of windows to average
-  const rateStream = pipe(
-    windowedStream,
-    Stream.map(({ count, totalMillis }) => ({
-      count,
-      totalMillis,
-      rate: count / windowTime,
-    })),
-    Stream.mapAccum([] as number[], (rates, { count, totalMillis, rate }) => {
-      const nextRates = [...rates, rate];
-      if (nextRates.length > rateWindowSize) nextRates.shift();
-      const movingAvg = nextRates.reduce((a, b) => a + b, 0) / nextRates.length;
-      return [nextRates, { count, totalMillis, rate, movingAvg }] as const;
-    }),
-  );
-  // (3) map rateStream → metrics object and publish
-  const metricsStream = pipe(
-    rateStream,
-    Stream.mapEffect(({ count, totalMillis, movingAvg }) =>
-      Effect.gen(function* () {
-        const now = yield* Clock.currentTimeMillis;
-        const windowCount = count;
-        const lifetime = yield* Metric.value(messageCounter);
-        const windowRate = movingAvg; // msgs/s in windowTime window
-        const avgProcTime =
-          windowCount > 0 ? Number((totalMillis / windowCount).toFixed(2)) : 0;
-        const metrics = {
-          timestamp: now,
-          windowCount, // msgs in this window,
-          windowTime,
-          totalCount: lifetime.count,
-          messageRate: windowRate,
-          avgProcessingTime: avgProcTime,
-        };
-        yield* redisPubSub.publish('metrics', JSON.stringify(metrics));
-        return metrics;
       }),
     ),
   );
 
   // Run both streams
   yield* pipe(
-    Stream.runDrain(metricsStream),
+    Stream.runDrain(messageProcessingStream),
     Effect.fork, // metrics publisher
   );
 
