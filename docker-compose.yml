@@ -6,6 +6,7 @@
 
 services:
   redis:
+    profiles: [ "m", "all" ]
     image: redis:latest
     ports:
       - "6379:6379"
@@ -16,7 +17,7 @@ services:
     # command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
 
   dump:
-    profiles: [ "dump", "all" ]
+    profiles: [ "m", "dump", "all" ]
     build:
       context: .
       dockerfile: Dockerfile.dump
@@ -34,7 +35,7 @@ services:
       - redis
 
   max:
-    profiles: [ "max", "all" ]
+    profiles: [ "m", "max", "all" ]
     build:
       context: .
       dockerfile: Dockerfile.max
@@ -43,10 +44,10 @@ services:
     tty: true
     restart: always
     depends_on:
-      - redis
+      - winfut
 
   winfut:
-    profiles: [ "winfut", "all" ]
+    profiles: [ "m", "winfut", "all" ]
     build:
       context: .
       dockerfile: Dockerfile.winfut
@@ -55,7 +56,19 @@ services:
     tty: true
     restart: always
     depends_on:
-      - redis
+      - dump
+
+  metrics:
+    profiles: [ "m", "metrics", "all" ]
+    build:
+      context: .
+      dockerfile: Dockerfile.metrics
+    network_mode: host
+    stdin_open: true
+    tty: true
+    restart: always
+    depends_on:
+      - winfut
 
   websocket-server-1:
     profiles: [ "websocket", "all" ]

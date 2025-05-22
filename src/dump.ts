@@ -152,9 +152,10 @@ const program = Effect.gen(function* () {
   };
   process.on('SIGINT', handleSignal);
   process.on('SIGTERM', handleSignal);
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', (_reason, _promise) => {
     // console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     // process.exit(1);
+    console.log('Unhandled Rejection.');
     shutdown();
   });
 

@@ -38,7 +38,7 @@ class ConnectionConfig extends Context.Tag('ConnectionConfig')<
 >() {}
 
 const TcpStreamLive = () =>
-  Layer.scoped(
+  Layer.effect(
     TcpStream,
 
     Effect.gen(function* () {
@@ -123,7 +123,6 @@ const TcpStreamLive = () =>
                     );
                     if (currentErrors > 3) {
                       // Too many errors, close the socket
-                      Effect.runSync(performShutdown);
                       return Effect.fail(
                         new Error(
                           `Write failed after ${currentErrors} attempts: ${error}`,
@@ -144,6 +143,7 @@ const TcpStreamLive = () =>
 
       // Cleanup procedure
       const close = Effect.gen(function* () {
+        yield* Effect.void;
         yield* performShutdown;
       });
 
