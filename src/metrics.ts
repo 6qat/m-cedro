@@ -2,6 +2,7 @@ import { BunRuntime } from '@effect/platform-bun';
 import {
   Chunk,
   Clock,
+  Config,
   Duration,
   Effect,
   Metric,
@@ -11,10 +12,38 @@ import {
 } from 'effect';
 import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 
+const MetricsConfig = Config.all({
+  windowSize: Config.integer('METRICS_WINDOW_MS').pipe(Config.withDefault(500)),
+  rateWindowCount: Config.integer('RATE_WINDOW_COUNT').pipe(
+    Config.withDefault(10),
+  ),
+  maxWindowMessages: Config.integer('MAX_WINDOW_MESSAGES').pipe(
+    Config.withDefault(1_000_000),
+  ),
+}).pipe(Config.nested('metrics'));
+
+interface Metrics {
+  timestamp: number;
+  windowCount: number;
+  windowTime: number;
+  totalCount: number;
+  messageRate: number;
+  avgProcessingTime: number;
+}
+
+const validateMetrics = (metrics: Metrics) => {
+  if (metrics.windowCount < 0) return false;
+  if (metrics.messageRate < 0) return false;
+  // Add more validation as needed
+  return true;
+};
+
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
 
   const redisPubSub = yield* RedisPubSub;
+
+  const config = yield* MetricsConfig;
 
   const stream = Stream.fromQueue(incomingQueue);
 
@@ -41,11 +70,14 @@ const program = Effect.gen(function* () {
   );
 
   // (1) collect messages for ≤windowTime s OR ≤1 M items
-  const windowTime = 1; // seconds
+  const windowTime = config.windowSize / 1_000; // seconds
   const windowedStream = pipe(
     stream,
     Stream.tap(() => Metric.increment(messageCounter)),
-    Stream.groupedWithin(1_000_000, Duration.seconds(windowTime)),
+    Stream.groupedWithin(
+      config.maxWindowMessages,
+      Duration.seconds(windowTime),
+    ),
     Stream.map((times) => {
       const count = Chunk.size(times);
       // const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
@@ -55,7 +87,7 @@ const program = Effect.gen(function* () {
   );
 
   // (2) add a messages/second moving average over the last N windows
-  const rateWindowSize = 10; // number of windows to average
+  const rateWindowSize = config.rateWindowCount; // number of windows to average
   const rateStream = pipe(
     windowedStream,
     Stream.map(({ count, totalMillis }) => ({
@@ -71,7 +103,7 @@ const program = Effect.gen(function* () {
     }),
   );
   // (3) map rateStream → metrics object and publish
-  const metricsStream = pipe(
+  const metricsStream: Stream.Stream<Metrics> = pipe(
     rateStream,
     Stream.mapEffect(({ count, totalMillis, movingAvg }) =>
       Effect.gen(function* () {
@@ -81,7 +113,8 @@ const program = Effect.gen(function* () {
         const windowRate = movingAvg; // msgs/s in windowTime window
         const avgProcTime =
           windowCount > 0 ? Number((totalMillis / windowCount).toFixed(2)) : 0;
-        return {
+
+        const metrics: Metrics = {
           timestamp: now,
           windowCount, // msgs in this window,
           windowTime,
@@ -89,19 +122,55 @@ const program = Effect.gen(function* () {
           messageRate: windowRate,
           avgProcessingTime: avgProcTime,
         };
+        return metrics;
       }),
+    ),
+    Stream.filter(validateMetrics),
+  );
+
+  // Aggregate metrics over time windows
+  const aggregatedMetrics = pipe(
+    metricsStream,
+    Stream.groupedWithin(1000, Duration.minutes(0.1)),
+    Stream.map((metricsChunk) => {
+      const metrics = Chunk.toArray(metricsChunk);
+      if (metrics.length === 0) return null;
+
+      const rates = metrics.map((m) => m.messageRate);
+      const minRate = Math.min(...rates);
+      const maxRate = Math.max(...rates);
+      const sumRate = rates.reduce((sum, rate) => sum + rate, 0);
+      const totalMessages = metrics.reduce((sum, m) => sum + m.windowCount, 0);
+
+      return {
+        timestamp: Date.now(),
+        minRate,
+        maxRate,
+        avgRate: sumRate / metrics.length,
+        totalMessages,
+        windowCount: metrics.length,
+      };
+    }),
+    Stream.filter(
+      (metrics): metrics is NonNullable<typeof metrics> => metrics !== null,
     ),
   );
 
   yield* pipe(
-    metricsStream,
+    aggregatedMetrics,
     Stream.tap((message) =>
       redisPubSub.publish('winfut.metrics', JSON.stringify(message)),
     ),
     Stream.runDrain,
     Effect.fork,
   );
-  yield* Effect.never;
+
+  const shutdown = Effect.gen(function* () {
+    yield* Effect.log('Shutting down metrics service...');
+    yield* Queue.shutdown(incomingQueue);
+  });
+
+  yield* Effect.never.pipe(Effect.onInterrupt(() => shutdown));
 });
 
 BunRuntime.runMain(
