@@ -13,8 +13,11 @@ import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
+
   const redisPubSub = yield* RedisPubSub;
+
   const stream = Stream.fromQueue(incomingQueue);
+
   // Define metrics for message rate
   const messageCounter = Metric.counter('messages_received').pipe(
     Metric.tagged('source', 'tcp_stream'),
@@ -40,11 +43,13 @@ const program = Effect.gen(function* () {
   // (1) collect messages for ≤windowTime s OR ≤1 M items
   const windowTime = 1; // seconds
   const windowedStream = pipe(
-    messageProcessingTimeStream,
+    stream,
+    Stream.tap(() => Metric.increment(messageCounter)),
     Stream.groupedWithin(1_000_000, Duration.seconds(windowTime)),
     Stream.map((times) => {
       const count = Chunk.size(times);
-      const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
+      // const totalMillis = Chunk.reduce(times, 0, (acc, t) => acc + t);
+      const totalMillis = windowTime * 1_000;
       return { count, totalMillis };
     }),
   );
