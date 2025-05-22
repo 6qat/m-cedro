@@ -3,7 +3,6 @@ import {
   Chunk,
   Clock,
   Config,
-  Deferred,
   Duration,
   Effect,
   Layer,
@@ -14,13 +13,13 @@ import {
 
 import readline from 'node:readline';
 import {
+  ConnectionConfig,
+  ConnectionConfigLive,
   TcpStream,
   TcpStreamLive,
-  ConnectionConfigLive,
-  ConnectionConfig,
 } from './tcp-stream';
 
-import { type RedisError, RedisPubSub, redisPubSubLayer } from './redis/redis';
+import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
@@ -139,7 +138,7 @@ const program = Effect.gen(function* () {
     }
   }
 
-  const shutdown = async () => {
+  const shutdown = () => {
     // The readline effect loops indefinitely. When we close it,
     // the program will continue, closing the connection and
     // joining the readerFiber.
