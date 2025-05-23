@@ -27,7 +27,8 @@ services:
       - CEDRO_USERNAME=${CEDRO_USERNAME}
       - CEDRO_PASSWORD=${CEDRO_PASSWORD}
       - CEDRO_TOKEN=${CEDRO_TOKEN}
-#    network_mode: host
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     stdin_open: true
     tty: true
     restart: always
@@ -47,6 +48,9 @@ services:
     stdin_open: true
     tty: true
     restart: always
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - winfut
     networks:
@@ -61,6 +65,9 @@ services:
     stdin_open: true
     tty: true
     restart: always
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - dump
     networks:
@@ -75,6 +82,9 @@ services:
     stdin_open: true
     tty: true
     restart: always
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - winfut
     networks:

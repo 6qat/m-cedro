@@ -1,14 +1,5 @@
 import { BunRuntime } from '@effect/platform-bun';
-import {
-  Clock,
-  Config,
-  Duration,
-  Effect,
-  Layer,
-  Metric,
-  Stream,
-  pipe,
-} from 'effect';
+import { Config, Duration, Effect, Layer, Stream, pipe } from 'effect';
 
 import readline from 'node:readline';
 import {
@@ -129,6 +120,9 @@ const layerComposition = Effect.gen(function* () {
   const magicToken = yield* Config.string('CEDRO_TOKEN');
   const username = yield* Config.string('CEDRO_USERNAME');
   const password = yield* Config.string('CEDRO_PASSWORD');
+  const redisHost = yield* Config.string('REDIS_HOST');
+  const redisPort = yield* Config.number('REDIS_PORT');
+
   return Layer.provideMerge(
     Layer.provideMerge(
       TcpStreamLive(),
@@ -141,7 +135,7 @@ const layerComposition = Effect.gen(function* () {
         password,
       ),
     ),
-    redisPubSubLayer({ url: 'redis://redis:6379' }),
+    redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
   );
 });
 

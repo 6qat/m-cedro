@@ -1,5 +1,5 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Clock, Effect, Queue, Ref, Stream, pipe } from 'effect';
+import { Clock, Config, Effect, Queue, Ref, Stream, pipe } from 'effect';
 import { parseCedroMessage } from './cedro/cedroParser';
 import { RedisPubSub, redisPubSubLayer } from './redis/redis';
 
@@ -77,5 +77,12 @@ const program = Effect.gen(function* () {
 });
 
 BunRuntime.runMain(
-  Effect.provide(program, redisPubSubLayer({ url: 'redis://redis:6379' })),
+  Effect.gen(function* () {
+    const redisHost = yield* Config.string('REDIS_HOST');
+    const redisPort = yield* Config.number('REDIS_PORT');
+    return yield* Effect.provide(
+      program,
+      redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+    );
+  }),
 );
