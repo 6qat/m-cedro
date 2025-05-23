@@ -141,7 +141,7 @@ const layerComposition = Effect.gen(function* () {
         password,
       ),
     ),
-    redisPubSubLayer(),
+    redisPubSubLayer({ url: 'redis://redis:6379' }),
   );
 });
 

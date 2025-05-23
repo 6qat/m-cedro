@@ -1,5 +1,5 @@
-import { Config, Context, Data, Effect, Layer, Deferred } from 'effect';
 import { getSystemErrorMap } from 'node:util';
+import { Config, Context, Data, Deferred, Effect, Layer } from 'effect';
 import { type RedisClientType, createClient } from 'redis';
 
 export class RedisError extends Data.TaggedError('RedisError')<{
@@ -100,7 +100,7 @@ const bootstrapRedisPubSubEffect = (
             catch: (e) =>
               new RedisError({
                 cause: e,
-                message: 'Syncronous error in `Redis.subscribe`',
+                message: 'Synchronous error in `Redis.subscribe`',
               }),
           });
 

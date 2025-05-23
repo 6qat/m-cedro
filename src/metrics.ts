@@ -186,7 +186,9 @@ const program = Effect.gen(function* () {
 
 BunRuntime.runMain(
   pipe(
-    Effect.scoped(Effect.provide(program, redisPubSubLayer())),
+    Effect.scoped(
+      Effect.provide(program, redisPubSubLayer({ url: 'redis://redis:6379' })),
+    ),
     Effect.catchAll((error) => {
       return Effect.log(`🚫 Recovering from error ${error}`);
     }),
