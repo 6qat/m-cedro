@@ -96,3 +96,10 @@ export const clearRedisDb = Effect.gen(function* () {
   yield* redis.use((client) => client.flushAll());
   yield* Effect.logInfo('Redis database cleared');
 }).pipe(Effect.withLogSpan('clearRedisDb'));
+
+export const setValue = (key: string, value: string) =>
+  Effect.gen(function* () {
+    const redis = yield* Redis;
+    yield* redis.use((client) => client.set(key, value));
+    yield* Effect.logInfo(`Set value: ${key} = ${value}`);
+  }).pipe(Effect.withLogSpan('setValue'), Effect.annotateLogs('foo', 'bar'));

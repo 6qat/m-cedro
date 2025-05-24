@@ -9,11 +9,20 @@ import {
   TcpStreamLive,
 } from './tcp-stream';
 
-import { RedisPubSub, redisPubSubLayer } from './redis/redis';
+import {
+  RedisPubSub,
+  RedisPersistence,
+  redisPubSubLayer,
+  redisPersistenceLayer,
+  redisConnectionOptionsLayer,
+} from './redis/redis';
 
 // Usage example
 const program = Effect.gen(function* () {
   const redisPubSub = yield* RedisPubSub;
+  const redisPersistence = yield* RedisPersistence;
+
+  yield* redisPersistence.setValue('guiga', 'Guilherme Moreira');
 
   const config = yield* ConnectionConfig;
 
@@ -121,6 +130,7 @@ const program = Effect.gen(function* () {
     });
   }).pipe(Effect.fork);
 
+  // Program ends either with input reading "quit" from console or streamFiber error
   yield* Effect.raceFirst(Fiber.join(streamFiber), Fiber.join(inputFiber));
 });
 
@@ -143,7 +153,15 @@ const layerComposition = Effect.gen(function* () {
         password,
       ),
     ),
-    redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+    Layer.merge(
+      redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+      Layer.provide(
+        redisPersistenceLayer(),
+        redisConnectionOptionsLayer({
+          url: `redis://${redisHost}:${redisPort}`,
+        }),
+      ),
+    ),
   );
 });
 
