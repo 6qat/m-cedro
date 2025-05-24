@@ -7,12 +7,6 @@ export class RedisError extends Data.TaggedError('RedisError')<{
   message: string;
 }> {}
 
-interface RedisShape {
-  use: <T>(
-    fn: (client: ReturnType<typeof createClient>) => T,
-  ) => Effect.Effect<Awaited<T>, RedisError, never>;
-}
-
 interface RedisPubSubShape {
   publish: (
     channel: string,
@@ -23,8 +17,6 @@ interface RedisPubSubShape {
     handler: (message: string) => void,
   ) => Effect.Effect<void, RedisError, never>;
 }
-
-class Redis extends Context.Tag('Redis')<Redis, RedisShape>() {}
 
 class RedisPubSub extends Context.Tag('RedisPubSub')<
   RedisPubSub,
@@ -43,7 +35,7 @@ const bootstrapRedisPubSubEffect = (
             .then((r) => {
               console.log('Connected to Redis');
               r.on('error', (e) => {
-                console.log('Redis error:', e.message);
+                console.log('Redis error(on error):', e.message);
                 r.quit();
               });
               r.on('end', () => {
@@ -51,7 +43,11 @@ const bootstrapRedisPubSubEffect = (
               });
               return r;
             }),
-        catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
+        catch: (e) =>
+          new RedisError({
+            cause: e,
+            message: 'Error while connecting to Redis',
+          }),
       }),
       (client) => Effect.promise(() => client.quit()),
     );
@@ -64,7 +60,7 @@ const bootstrapRedisPubSubEffect = (
             .then((r) => {
               console.log('Connected to Redis');
               r.on('error', (e) => {
-                console.log('Redis error:', e.message);
+                console.log('Redis error(on error):', e.message);
                 r.quit();
               });
               r.on('end', () => {
@@ -73,7 +69,11 @@ const bootstrapRedisPubSubEffect = (
 
               return r;
             }),
-        catch: (e) => new RedisError({ cause: e, message: 'Error connecting' }),
+        catch: (e) =>
+          new RedisError({
+            cause: e,
+            message: 'Error while connecting to Redis',
+          }),
       }),
       (client) => Effect.promise(() => client.quit()),
     );
@@ -87,7 +87,7 @@ const bootstrapRedisPubSubEffect = (
             catch: (e) =>
               new RedisError({
                 cause: e,
-                message: 'Syncronous error in `Redis.publish`',
+                message: 'Error in `Redis.publish`',
               }),
           });
 
@@ -100,7 +100,7 @@ const bootstrapRedisPubSubEffect = (
             catch: (e) =>
               new RedisError({
                 cause: e,
-                message: 'Synchronous error in `Redis.subscribe`',
+                message: 'Error in `Redis.subscribe`',
               }),
           });
 
@@ -112,44 +112,4 @@ const bootstrapRedisPubSubEffect = (
 const redisPubSubLayer = (options?: Parameters<typeof createClient>[0]) =>
   Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect(options));
 
-// Example: Effectful Redis commands
-const set = (key: string, value: string) =>
-  Effect.gen(function* () {
-    const redis = yield* Redis;
-    yield* redis.use((client) => client.set(key, value));
-  });
-
-const get = (key: string) =>
-  Effect.gen(function* () {
-    const redis = yield* Redis;
-    return yield* redis.use((client) => client.get(key));
-  });
-
-const del = (key: string) =>
-  Effect.gen(function* () {
-    const redis = yield* Redis;
-    yield* redis.use((client) => client.del(key));
-  });
-
-const publish = (channel: string, message: string) =>
-  Effect.gen(function* () {
-    const redis = yield* Redis;
-    yield* redis.use((client) => client.publish(channel, message));
-  });
-
-const subscribe = (channel: string, handler: (message: string) => void) =>
-  Effect.gen(function* () {
-    const redis = yield* Redis;
-    yield* redis.use((client) => client.subscribe(channel, handler));
-  });
-
-export {
-  Redis,
-  RedisPubSub,
-  set,
-  get,
-  del,
-  publish,
-  subscribe,
-  redisPubSubLayer,
-};
+export { RedisPubSub, redisPubSubLayer };
