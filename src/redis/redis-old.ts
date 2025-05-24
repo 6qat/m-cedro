@@ -30,7 +30,7 @@ export const make = (options?: Parameters<typeof createClient>[0]) =>
             catch: (e) =>
               new RedisError({
                 cause: e,
-                message: 'Syncronous error in `Redis.use`',
+                message: 'Synchronous error in `Redis.use`',
               }),
           });
           if (result instanceof Promise) {
@@ -39,7 +39,7 @@ export const make = (options?: Parameters<typeof createClient>[0]) =>
               catch: (e) =>
                 new RedisError({
                   cause: e,
-                  message: 'Asyncronous error in `Redis.use`',
+                  message: 'Asynchronous error in `Redis.use`',
                 }),
             });
           }

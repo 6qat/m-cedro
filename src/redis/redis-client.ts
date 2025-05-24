@@ -18,7 +18,17 @@ export class Redis extends Context.Tag('Redis')<
 
 const makeScopedRedis = (options?: Parameters<typeof createClient>[0]) =>
   Effect.gen(function* () {
-    const client = createClient(options) as RedisClientType;
+    const client = createClient({
+      ...options,
+      socket: {
+        reconnectStrategy: (retries) => {
+          // Max retries before giving up
+          if (retries > 0) return new Error('Redis connection failed');
+          // Exponential backoff: 2^retries * 100ms
+          return Math.min(2 ** retries * 100, 3000);
+        },
+      },
+    }) as RedisClientType;
     const errors = yield* Queue.unbounded<RedisError>();
     const runtime = yield* Effect.runtime<never>();
 
@@ -46,12 +56,12 @@ const makeScopedRedis = (options?: Parameters<typeof createClient>[0]) =>
     const finalizer = Effect.addFinalizer(() =>
       Effect.tryPromise({
         try: () => client.quit(),
-        catch: () => new Error('bla'),
+        catch: () => void 0,
       }).pipe(Effect.orElse(() => Effect.succeed(''))),
     );
     yield* finalizer;
 
-    return { client, errors, runtime }; // Runtime must be returned to keep alive
+    return Redis.of({ client, errors, runtime }); // Runtime must be returned to keep alive
   });
 
 export const RedisLive = Layer.scoped(Redis, makeScopedRedis());
@@ -69,7 +79,7 @@ export const get = (
     }
 
     // If no errors, proceed with the get operation
-    return yield* Effect.tryPromise({
+    const result = yield* Effect.tryPromise({
       try: () => client.get(key),
       catch: (error) =>
         new RedisError({
@@ -77,8 +87,25 @@ export const get = (
           cause: error,
         }),
     });
+
+    return result;
+  });
+
+export const set = (key: string, value: string) =>
+  Effect.gen(function* () {
+    const { client } = yield* Redis;
+    return yield* Effect.tryPromise({
+      try: () => client.set(key, value),
+      catch: (error) =>
+        new RedisError({
+          message: 'SET failed',
+          cause: error,
+        }),
+    });
   });
 
 const program = get('some-key').pipe(Effect.provide(RedisLive));
 
-BunRuntime.runMain(program);
+BunRuntime.runMain(
+  program.pipe(Effect.catchAllCause((_cause) => Effect.logError('deu ruim'))),
+);
