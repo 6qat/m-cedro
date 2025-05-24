@@ -30,16 +30,18 @@ const bootstrapRedisPubSubEffect = (
     const clientPublish = yield* Effect.acquireRelease(
       Effect.tryPromise({
         try: () =>
-          createClient(options)
+          createClient({
+            ...options,
+          })
             .connect()
             .then((r) => {
               console.log('Connected to Redis');
               r.on('error', (e) => {
                 console.log('Redis error(on error):', e.message);
-                r.quit();
+                r.destroy();
               });
               r.on('end', () => {
-                console.log('Connection ended');
+                console.log('Connection to Redis ended');
               });
               return r;
             }),
@@ -49,22 +51,29 @@ const bootstrapRedisPubSubEffect = (
             message: 'Error while connecting to Redis',
           }),
       }),
-      (client) => Effect.promise(() => client.quit()),
+      (client) =>
+        Effect.sync(() => {
+          if (client.isReady) {
+            client.quit();
+          }
+        }),
     );
 
     const clientSubscribe = yield* Effect.acquireRelease(
       Effect.tryPromise({
         try: () =>
-          createClient(options)
+          createClient({
+            ...options,
+          })
             .connect()
             .then((r) => {
               console.log('Connected to Redis');
               r.on('error', (e) => {
                 console.log('Redis error(on error):', e.message);
-                r.quit();
+                r.destroy();
               });
               r.on('end', () => {
-                console.log('Connection ended');
+                console.log('Connection to Redis ended');
               });
 
               return r;
@@ -75,7 +84,12 @@ const bootstrapRedisPubSubEffect = (
             message: 'Error while connecting to Redis',
           }),
       }),
-      (client) => Effect.promise(() => client.quit()),
+      (client) =>
+        Effect.sync(() => {
+          if (client.isReady) {
+            client.quit();
+          }
+        }),
     );
 
     // Return the RedisShape interface

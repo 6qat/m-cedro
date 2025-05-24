@@ -1,5 +1,5 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Config, Duration, Effect, Layer, Stream, pipe } from 'effect';
+import { Config, Duration, Effect, Fiber, Layer, Stream, pipe } from 'effect';
 
 import readline from 'node:readline';
 import {
@@ -42,13 +42,21 @@ const program = Effect.gen(function* () {
         yield* redisPubSub.publish('raw', message);
       }),
     ),
+    // Stream.catchAllCause(() => {
+    //   // console.log(e.toJSON());
+    //   return Effect.succeed(undefined);
+    // }),
   );
 
-  // Run both streams
-  yield* pipe(
+  const streamFiber = yield* pipe(
     Stream.runDrain(messageProcessingStream),
     Effect.fork, // metrics publisher
   );
+  streamFiber.addObserver((_e) => {
+    // console.log(e.toJSON());
+    // console.log('shutdown');
+    // shutdown();
+  });
 
   // Ensure metrics logging is cleaned up
   // yield* Effect.addFinalizer(() => Fiber.interrupt(logMetrics));
@@ -75,6 +83,7 @@ const program = Effect.gen(function* () {
 
   // Handle SIGINT (Ctrl+C) and SIGTERM
   const handleSignal = async () => {
+    console.log('Signal received. Shutting down...');
     shutdown();
   };
   process.on('SIGINT', handleSignal);
@@ -94,7 +103,7 @@ const program = Effect.gen(function* () {
   });
 
   // Wrap readline in an Effect for cleanup
-  yield* Effect.async((resume, signal) => {
+  const inputFiber = yield* Effect.async((resume, signal) => {
     rl.on('line', (line) => {
       if (line === 'quit') {
         rl.close();
@@ -110,10 +119,9 @@ const program = Effect.gen(function* () {
     signal.addEventListener('abort', () => {
       rl.close();
     });
-  });
+  }).pipe(Effect.fork);
 
-  // When stdin closes, clean up TCP connection
-  yield* connection.close;
+  yield* Effect.raceFirst(Fiber.join(streamFiber), Fiber.join(inputFiber));
 });
 
 const layerComposition = Effect.gen(function* () {
@@ -157,7 +165,7 @@ BunRuntime.runMain(
       return Effect.logError(`🚫 Recovering from error ${error}`);
     }),
     Effect.catchAllCause((cause) => {
-      // console.log('Recovered from defect:', cause.toString().split('\n')[0]);
+      console.log('Recovered from defect:', cause.toString());
       return Effect.logError(
         `💥 Recovering from defect(${cause.toString().split('\n')[0]}) ${JSON.stringify(cause.toJSON(), null, 2)}`,
       );
