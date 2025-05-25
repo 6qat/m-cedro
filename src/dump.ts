@@ -20,9 +20,9 @@ import {
 // Usage example
 const program = Effect.gen(function* () {
   const redisPubSub = yield* RedisPubSub;
-  const redisPersistence = yield* RedisPersistence;
+  const { setValue } = yield* RedisPersistence;
 
-  yield* redisPersistence.setValue('guiga', 'Guilherme Moreira');
+  yield* setValue('guiga', 'Guilherme Moreira');
 
   const config = yield* ConnectionConfig;
 
@@ -67,9 +67,6 @@ const program = Effect.gen(function* () {
     // shutdown();
   });
 
-  // Ensure metrics logging is cleaned up
-  // yield* Effect.addFinalizer(() => Fiber.interrupt(logMetrics));
-
   // Send credentials immediately after connection is established
   yield* connection.sendText(`${config.magicToken}\n`);
   yield* connection.sendText(`${config.username}\n`);
@@ -102,6 +99,12 @@ const program = Effect.gen(function* () {
     // process.exit(1);
     console.log('Unhandled Rejection.');
     shutdown();
+  });
+  process.on('uncaughtException', (_error, _origin) => {
+    // console.error('Uncaught Exception:', error);
+    // console.error('Exception origin:', origin);
+    // Perform any cleanup if needed
+    // process.exit(1); // Optional: exit after handling
   });
 
   // Setup readline interface for stdin
@@ -145,18 +148,17 @@ const layerComposition = Effect.gen(function* () {
     url: `redis://${redisHost}:${redisPort}`,
   });
 
+  const tcpConfig = ConnectionConfigLive(
+    'datafeedcd3.cedrotech.com',
+    81,
+    ['WINM25', 'WDOK25'],
+    magicToken,
+    username,
+    password,
+  );
+
   return Layer.provideMerge(
-    Layer.provideMerge(
-      TcpStreamLive(),
-      ConnectionConfigLive(
-        'datafeedcd3.cedrotech.com',
-        81,
-        ['WINM25', 'WDOK25'],
-        magicToken,
-        username,
-        password,
-      ),
-    ),
+    Layer.provideMerge(TcpStreamLive(), tcpConfig),
     Layer.merge(
       Layer.provide(redisPubSubLayer(), redisOptions),
       Layer.provide(redisPersistenceLayer(), redisOptions),
@@ -167,13 +169,6 @@ const layerComposition = Effect.gen(function* () {
 const run = layerComposition.pipe(
   Effect.flatMap((layer) => program.pipe(Effect.provide(layer))),
 );
-
-// process.on('uncaughtException', (error, origin) => {
-//   console.error('Uncaught Exception:', error);
-//   console.error('Exception origin:', origin);
-//   // Perform any cleanup if needed
-//   // process.exit(1); // Optional: exit after handling
-// });
 
 BunRuntime.runMain(
   pipe(
