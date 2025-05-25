@@ -10,11 +10,11 @@ import {
 } from './tcp-stream';
 
 import {
-  RedisPubSub,
+  RedisConnectionOptionsLive,
   RedisPersistence,
-  redisPubSubLayer,
-  redisPersistenceLayer,
-  redisConnectionOptionsLayer,
+  RedisPersistenceLive,
+  RedisPubSub,
+  RedisPubSubLive,
 } from './redis/redis';
 
 // Usage example
@@ -142,7 +142,7 @@ const layerComposition = Effect.gen(function* () {
   const redisHost = yield* Config.string('REDIS_HOST');
   const redisPort = yield* Config.number('REDIS_PORT');
 
-  const redisOptions = redisConnectionOptionsLayer({
+  const redisOptions = RedisConnectionOptionsLive({
     url: `redis://${redisHost}:${redisPort}`,
   });
 
@@ -158,8 +158,8 @@ const layerComposition = Effect.gen(function* () {
   return Layer.provideMerge(
     Layer.provideMerge(TcpStreamLive(), tcpConfig),
     Layer.merge(
-      Layer.provide(redisPubSubLayer, redisOptions),
-      Layer.provide(redisPersistenceLayer, redisOptions),
+      Layer.provide(RedisPubSubLive, redisOptions),
+      Layer.provide(RedisPersistenceLive, redisOptions),
     ),
   );
 });

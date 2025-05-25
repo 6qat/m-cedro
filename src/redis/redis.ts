@@ -14,7 +14,7 @@ class RedisConnectionOptions extends Context.Tag('RedisConnectionOptions')<
   RedisConnectionOptionsShape
 >() {}
 
-const redisConnectionOptionsLayer = (
+const RedisConnectionOptionsLive = (
   options?: Parameters<typeof createClient>[0],
 ) =>
   Layer.succeed(
@@ -107,7 +107,7 @@ const bootstrapRedisPersistenceEffect = () =>
     });
   });
 
-const redisPersistenceLayer = Layer.scoped(
+const RedisPersistenceLive = Layer.scoped(
   RedisPersistence,
   bootstrapRedisPersistenceEffect(),
 );
@@ -143,16 +143,13 @@ const bootstrapRedisPubSubEffect = () =>
     });
   });
 
-const redisPubSubLayer = Layer.scoped(
-  RedisPubSub,
-  bootstrapRedisPubSubEffect(),
-);
+const RedisPubSubLive = Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect());
 
 export {
   RedisPersistence,
   RedisPubSub,
   RedisConnectionOptions,
-  redisPersistenceLayer,
-  redisPubSubLayer,
-  redisConnectionOptionsLayer,
+  RedisPersistenceLive,
+  RedisPubSubLive,
+  RedisConnectionOptionsLive,
 };

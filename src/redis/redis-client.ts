@@ -79,7 +79,7 @@ export const get = (
     }
 
     // If no errors, proceed with the get operation
-    const result = yield* Effect.tryPromise({
+    return yield* Effect.tryPromise({
       try: () => client.get(key),
       catch: (error) =>
         new RedisError({
@@ -87,8 +87,6 @@ export const get = (
           cause: error,
         }),
     });
-
-    return result;
   });
 
 export const set = (key: string, value: string) =>

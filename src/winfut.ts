@@ -1,9 +1,9 @@
 import { BunRuntime } from '@effect/platform-bun';
 import { Config, Effect, Layer, Queue, Stream, pipe } from 'effect';
 import {
-  redisConnectionOptionsLayer,
+  RedisConnectionOptionsLive,
   RedisPubSub,
-  redisPubSubLayer,
+  RedisPubSubLive,
 } from './redis/redis';
 
 const program = Effect.gen(function* () {
@@ -27,13 +27,13 @@ BunRuntime.runMain(
   Effect.gen(function* () {
     const redisHost = yield* Config.string('REDIS_HOST');
     const redisPort = yield* Config.number('REDIS_PORT');
-    const redisOptions = redisConnectionOptionsLayer({
+    const redisOptions = RedisConnectionOptionsLive({
       url: `redis://${redisHost}:${redisPort}`,
     });
 
     return yield* pipe(
       Effect.scoped(
-        Effect.provide(program, Layer.provide(redisPubSubLayer, redisOptions)),
+        Effect.provide(program, Layer.provide(RedisPubSubLive, redisOptions)),
       ),
       Effect.catchAll((error) => {
         return Effect.log(`🚫 Recovering from error ${error}`);
