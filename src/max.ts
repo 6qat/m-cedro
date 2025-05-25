@@ -1,7 +1,11 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Clock, Config, Effect, Queue, Ref, Stream, pipe } from 'effect';
+import { Clock, Config, Effect, Layer, Queue, Ref, Stream, pipe } from 'effect';
 import { parseCedroMessage } from './cedro/cedroParser';
-import { RedisPubSub, redisPubSubLayer } from './redis/redis';
+import {
+  RedisPubSub,
+  redisPubSubLayer,
+  redisConnectionOptionsLayer,
+} from './redis/redis';
 
 const getIsoWeekString = (date: Date): string => {
   const d = new Date(
@@ -82,7 +86,12 @@ BunRuntime.runMain(
     const redisPort = yield* Config.number('REDIS_PORT');
     return yield* Effect.provide(
       program,
-      redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+      Layer.provide(
+        redisPubSubLayer(),
+        redisConnectionOptionsLayer({
+          url: `redis://${redisHost}:${redisPort}`,
+        }),
+      ),
     );
   }),
 );

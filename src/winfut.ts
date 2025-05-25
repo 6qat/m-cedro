@@ -1,6 +1,10 @@
 import { BunRuntime } from '@effect/platform-bun';
-import { Config, Effect, Queue, Stream, pipe } from 'effect';
-import { RedisPubSub, redisPubSubLayer } from './redis/redis';
+import { Config, Effect, Layer, Queue, Stream, pipe } from 'effect';
+import {
+  redisConnectionOptionsLayer,
+  RedisPubSub,
+  redisPubSubLayer,
+} from './redis/redis';
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
@@ -27,7 +31,12 @@ BunRuntime.runMain(
       Effect.scoped(
         Effect.provide(
           program,
-          redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+          Layer.provide(
+            redisPubSubLayer(),
+            redisConnectionOptionsLayer({
+              url: `redis://${redisHost}:${redisPort}`,
+            }),
+          ),
         ),
       ),
       Effect.catchAll((error) => {

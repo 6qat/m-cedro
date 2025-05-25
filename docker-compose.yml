@@ -44,7 +44,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.max
-#    network_mode: host
+    #    network_mode: host
     stdin_open: true
     tty: true
     restart: always
@@ -52,7 +52,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - winfut
+      - redis
     networks:
       - shared-network
 
@@ -61,7 +61,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.winfut
-#    network_mode: host
+    #    network_mode: host
     stdin_open: true
     tty: true
     restart: always
@@ -69,7 +69,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - dump
+      - redis
     networks:
       - shared-network
 
@@ -78,7 +78,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.metrics
-#    network_mode: host
+    #    network_mode: host
     stdin_open: true
     tty: true
     restart: always
@@ -86,7 +86,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     depends_on:
-      - winfut
+      - redis
     networks:
       - shared-network
 

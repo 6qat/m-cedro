@@ -5,12 +5,17 @@ import {
   Config,
   Duration,
   Effect,
+  Layer,
   Metric,
   Queue,
   Stream,
   pipe,
 } from 'effect';
-import { RedisPubSub, redisPubSubLayer } from './redis/redis';
+import {
+  redisConnectionOptionsLayer,
+  RedisPubSub,
+  redisPubSubLayer,
+} from './redis/redis';
 
 const MetricsConfig = Config.all({
   windowSize: Config.integer('METRICS_WINDOW_MS').pipe(Config.withDefault(500)),
@@ -192,7 +197,12 @@ BunRuntime.runMain(
       Effect.scoped(
         Effect.provide(
           program,
-          redisPubSubLayer({ url: `redis://${redisHost}:${redisPort}` }),
+          Layer.provide(
+            redisPubSubLayer(),
+            redisConnectionOptionsLayer({
+              url: `redis://${redisHost}:${redisPort}`,
+            }),
+          ),
         ),
       ),
       Effect.catchAll((error) => {

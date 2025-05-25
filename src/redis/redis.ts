@@ -52,44 +52,50 @@ class RedisPersistence extends Context.Tag('RedisPersistence')<
   RedisPersistenceShape
 >() {}
 
+const redisClientEffect = Effect.gen(function* () {
+  const connectionOptions = yield* RedisConnectionOptions;
+  const client = yield* Effect.acquireRelease(
+    Effect.tryPromise({
+      try: () =>
+        createClient({
+          ...connectionOptions.options,
+        })
+          .connect()
+          .then((r) => {
+            console.log('Connected to Redis');
+            r.on('error', (e) => {
+              console.log('Redis error(on error):', e.message);
+              r.destroy();
+            });
+            r.on('end', () => {
+              console.log('Connection to Redis ended');
+            });
+            return r;
+          }),
+      catch: (e) =>
+        new RedisError({
+          cause: e,
+          message: 'Error while connecting to Redis',
+        }),
+    }),
+    (client) =>
+      Effect.sync(() => {
+        if (client.isReady) {
+          client.quit();
+        }
+      }),
+  );
+  return client;
+});
+
 const bootstrapRedisPersistenceEffect = () =>
   Effect.gen(function* () {
-    const connectionOptions = yield* RedisConnectionOptions;
-    const client = yield* Effect.acquireRelease(
-      Effect.tryPromise({
-        try: () =>
-          createClient({
-            ...connectionOptions.options,
-          })
-            .connect()
-            .then((r) => {
-              console.log('Connected to Redis');
-              r.on('error', (e) => {
-                console.log('Redis error(on error):', e.message);
-                r.destroy();
-              });
-              r.on('end', () => {
-                console.log('Connection to Redis ended');
-              });
-              return r;
-            }),
-        catch: (e) =>
-          new RedisError({
-            cause: e,
-            message: 'Error while connecting to Redis',
-          }),
-      }),
-      (client) =>
-        Effect.sync(() => {
-          if (client.isReady) {
-            client.quit();
-          }
-        }),
-    );
+    const client = yield* redisClientEffect;
+
     return RedisPersistence.of({
       setValue: (key, value) =>
         Effect.gen(function* () {
-          const result = yield* Effect.tryPromise({
+          return yield* Effect.tryPromise({
             try: () => client.set(key, value),
             catch: (e) =>
               new RedisError({
@@ -97,8 +103,6 @@ const bootstrapRedisPersistenceEffect = () =>
                 message: 'Error in `Redis.setValue`',
               }),
           });
-
-          return result;
         }),
     });
   });
@@ -106,80 +110,15 @@ const bootstrapRedisPersistenceEffect = () =>
 const redisPersistenceLayer = () =>
   Layer.scoped(RedisPersistence, bootstrapRedisPersistenceEffect());
 
-const bootstrapRedisPubSubEffect = (
-  options?: Parameters<typeof createClient>[0],
-) =>
+const bootstrapRedisPubSubEffect = () =>
   Effect.gen(function* () {
-    const clientPublish = yield* Effect.acquireRelease(
-      Effect.tryPromise({
-        try: () =>
-          createClient({
-            ...options,
-          })
-            .connect()
-            .then((r) => {
-              console.log('Connected to Redis');
-              r.on('error', (e) => {
-                console.log('Redis error(on error):', e.message);
-                r.destroy();
-              });
-              r.on('end', () => {
-                console.log('Connection to Redis ended');
-              });
-              return r;
-            }),
-        catch: (e) =>
-          new RedisError({
-            cause: e,
-            message: 'Error while connecting to Redis',
-          }),
-      }),
-      (client) =>
-        Effect.sync(() => {
-          if (client.isReady) {
-            client.quit();
-          }
-        }),
-    );
+    const clientPublish = yield* redisClientEffect;
+    const clientSubscribe = yield* redisClientEffect;
 
-    const clientSubscribe = yield* Effect.acquireRelease(
-      Effect.tryPromise({
-        try: () =>
-          createClient({
-            ...options,
-          })
-            .connect()
-            .then((r) => {
-              console.log('Connected to Redis');
-              r.on('error', (e) => {
-                console.log('Redis error(on error):', e.message);
-                r.destroy();
-              });
-              r.on('end', () => {
-                console.log('Connection to Redis ended');
-              });
-
-              return r;
-            }),
-        catch: (e) =>
-          new RedisError({
-            cause: e,
-            message: 'Error while connecting to Redis',
-          }),
-      }),
-      (client) =>
-        Effect.sync(() => {
-          if (client.isReady) {
-            client.quit();
-          }
-        }),
-    );
-
-    // Return the RedisShape interface
     return RedisPubSub.of({
       publish: (channel, message) =>
         Effect.gen(function* () {
-          const result = yield* Effect.tryPromise({
+          return yield* Effect.tryPromise({
             try: () => clientPublish.publish(channel, message),
             catch: (e) =>
               new RedisError({
@@ -187,12 +126,10 @@ const bootstrapRedisPubSubEffect = (
                 message: 'Error in `Redis.publish`',
               }),
           });
-
-          return result;
         }),
       subscribe: (channel, handler) =>
         Effect.gen(function* () {
-          const result = yield* Effect.tryPromise({
+          return yield* Effect.tryPromise({
             try: () => clientSubscribe.subscribe(channel, handler),
             catch: (e) =>
               new RedisError({
@@ -200,20 +137,18 @@ const bootstrapRedisPubSubEffect = (
                 message: 'Error in `Redis.subscribe`',
               }),
           });
-
-          return result;
         }),
     });
   });
 
-const redisPubSubLayer = (options?: Parameters<typeof createClient>[0]) =>
-  Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect(options));
+const redisPubSubLayer = () =>
+  Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect());
 
 export {
   RedisPersistence,
   RedisPubSub,
+  RedisConnectionOptions,
   redisPersistenceLayer,
   redisPubSubLayer,
-  RedisConnectionOptions,
   redisConnectionOptionsLayer,
 };
