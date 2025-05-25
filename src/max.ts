@@ -84,14 +84,13 @@ BunRuntime.runMain(
   Effect.gen(function* () {
     const redisHost = yield* Config.string('REDIS_HOST');
     const redisPort = yield* Config.number('REDIS_PORT');
+    const redisOptions = redisConnectionOptionsLayer({
+      url: `redis://${redisHost}:${redisPort}`,
+    });
+
     return yield* Effect.provide(
       program,
-      Layer.provide(
-        redisPubSubLayer(),
-        redisConnectionOptionsLayer({
-          url: `redis://${redisHost}:${redisPort}`,
-        }),
-      ),
+      Layer.provide(redisPubSubLayer, redisOptions),
     );
   }),
 );

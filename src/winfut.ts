@@ -27,17 +27,13 @@ BunRuntime.runMain(
   Effect.gen(function* () {
     const redisHost = yield* Config.string('REDIS_HOST');
     const redisPort = yield* Config.number('REDIS_PORT');
+    const redisOptions = redisConnectionOptionsLayer({
+      url: `redis://${redisHost}:${redisPort}`,
+    });
+
     return yield* pipe(
       Effect.scoped(
-        Effect.provide(
-          program,
-          Layer.provide(
-            redisPubSubLayer(),
-            redisConnectionOptionsLayer({
-              url: `redis://${redisHost}:${redisPort}`,
-            }),
-          ),
-        ),
+        Effect.provide(program, Layer.provide(redisPubSubLayer, redisOptions)),
       ),
       Effect.catchAll((error) => {
         return Effect.log(`🚫 Recovering from error ${error}`);

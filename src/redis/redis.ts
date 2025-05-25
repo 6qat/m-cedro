@@ -107,8 +107,10 @@ const bootstrapRedisPersistenceEffect = () =>
     });
   });
 
-const redisPersistenceLayer = () =>
-  Layer.scoped(RedisPersistence, bootstrapRedisPersistenceEffect());
+const redisPersistenceLayer = Layer.scoped(
+  RedisPersistence,
+  bootstrapRedisPersistenceEffect(),
+);
 
 const bootstrapRedisPubSubEffect = () =>
   Effect.gen(function* () {
@@ -141,8 +143,10 @@ const bootstrapRedisPubSubEffect = () =>
     });
   });
 
-const redisPubSubLayer = () =>
-  Layer.scoped(RedisPubSub, bootstrapRedisPubSubEffect());
+const redisPubSubLayer = Layer.scoped(
+  RedisPubSub,
+  bootstrapRedisPubSubEffect(),
+);
 
 export {
   RedisPersistence,

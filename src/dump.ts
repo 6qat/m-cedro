@@ -59,12 +59,10 @@ const program = Effect.gen(function* () {
 
   const streamFiber = yield* pipe(
     Stream.runDrain(messageProcessingStream),
-    Effect.fork, // metrics publisher
+    Effect.fork,
   );
   streamFiber.addObserver((_e) => {
     // console.log(e.toJSON());
-    // console.log('shutdown');
-    // shutdown();
   });
 
   // Send credentials immediately after connection is established
@@ -160,8 +158,8 @@ const layerComposition = Effect.gen(function* () {
   return Layer.provideMerge(
     Layer.provideMerge(TcpStreamLive(), tcpConfig),
     Layer.merge(
-      Layer.provide(redisPubSubLayer(), redisOptions),
-      Layer.provide(redisPersistenceLayer(), redisOptions),
+      Layer.provide(redisPubSubLayer, redisOptions),
+      Layer.provide(redisPersistenceLayer, redisOptions),
     ),
   );
 });
