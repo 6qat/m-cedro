@@ -4,7 +4,7 @@ import {
   RedisConnectionOptionsLive,
   RedisPubSub,
   RedisPubSubLive,
-} from './redis/redis';
+} from './redis.ts';
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();

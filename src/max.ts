@@ -5,7 +5,7 @@ import {
   RedisConnectionOptionsLive,
   RedisPubSub,
   RedisPubSubLive,
-} from './redis/redis';
+} from './redis.ts';
 
 const getIsoWeekString = (date: Date): string => {
   const d = new Date(

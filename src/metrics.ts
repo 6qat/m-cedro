@@ -15,7 +15,7 @@ import {
   RedisConnectionOptionsLive,
   RedisPubSub,
   RedisPubSubLive,
-} from './redis/redis';
+} from './redis.ts';
 
 const MetricsConfig = Config.all({
   windowSize: Config.integer('METRICS_WINDOW_MS').pipe(Config.withDefault(500)),
