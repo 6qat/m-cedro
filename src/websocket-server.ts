@@ -1,14 +1,4 @@
-import {
-  Effect,
-  Stream,
-  Queue,
-  Fiber,
-  pipe,
-  Duration,
-  Ref,
-  Console,
-} from 'effect';
-import { webcrypto } from 'node:crypto';
+import { Duration, Effect, Fiber, Queue, Ref, Stream, pipe } from 'effect';
 
 interface TcpClient {
   readonly id: string;
@@ -18,7 +8,7 @@ interface TcpClient {
 }
 
 interface TcpServer {
-  readonly clients: Stream.Stream<TcpClient, never>;
+  readonly clients: Stream.Stream<TcpClient>;
   readonly close: Effect.Effect<void>;
 }
 
@@ -111,7 +101,7 @@ const createTcpServer = (options: {
       // Message handler
       message: (ws, message) => {
         const data =
-          message instanceof Buffer
+          Buffer.isBuffer(message)
             ? new Uint8Array(message.buffer)
             : new TextEncoder().encode(message.toString());
 
@@ -125,7 +115,7 @@ const createTcpServer = (options: {
       }, // end close callback
     }; // End of websocket handler
 
-    const closeAlreadCalled = yield* Ref.make(false);
+    const closeAlreadyCalled = yield* Ref.make(false);
     // Server instance
     const bunServer = yield* Effect.try({
       try: () =>
@@ -160,9 +150,9 @@ const createTcpServer = (options: {
 
     // Server close effect
     const close = Effect.gen(function* () {
-      // const already = yield* Ref.getAndSet(closeAlreadCalled, true);
+      // const already = yield* Ref.getAndSet(closeAlreadyCalled, true);
       // if (already) return;
-      yield* Effect.if(closeAlreadCalled, {
+      yield* Effect.if(closeAlreadyCalled, {
         onTrue: () => Effect.void,
         onFalse: () =>
           Effect.gen(function* () {
@@ -176,7 +166,7 @@ const createTcpServer = (options: {
               { concurrency: 'unbounded' },
             );
             yield* Queue.shutdown(clientsQueue);
-            yield* Ref.set(closeAlreadCalled, true);
+            yield* Ref.set(closeAlreadyCalled, true);
           }),
       });
     });

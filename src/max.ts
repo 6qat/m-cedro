@@ -1,11 +1,11 @@
 import { BunRuntime } from '@effect/platform-bun';
 import { Clock, Config, Effect, Layer, Queue, Ref, Stream, pipe } from 'effect';
-import { parseCedroMessage } from './cedro/cedroParser';
 import {
   RedisConnectionOptionsLive,
   RedisPubSub,
   RedisPubSubLive,
-} from './redis.ts';
+} from 'effect-redis';
+import { parseCedroMessage } from './cedro/cedroParser';
 
 const getIsoWeekString = (date: Date): string => {
   const d = new Date(

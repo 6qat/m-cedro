@@ -15,7 +15,7 @@ import {
   RedisPersistenceLive,
   RedisPubSub,
   RedisPubSubLive,
-} from './redis.ts';
+} from 'effect-redis';
 
 // Usage example
 const program = Effect.gen(function* () {
