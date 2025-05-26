@@ -24,6 +24,43 @@ const RedisConnectionOptionsLive = (
     }),
   );
 
+interface RedisShape {
+  use: <T>(
+    fn: (client: ReturnType<typeof createClient>) => T,
+  ) => Effect.Effect<Awaited<T>, RedisError, never>;
+}
+class Redis extends Context.Tag('Redis')<Redis, RedisShape>() {}
+
+const bootstrapRedisEffect = Effect.gen(function* () {
+  const client = yield* redisClientEffect;
+  return Redis.of({
+    use: (fn) =>
+      Effect.gen(function* () {
+        const result = yield* Effect.try({
+          try: () => fn(client),
+          catch: (e) =>
+            new RedisError({
+              cause: e,
+              message: 'Synchronous error in `Redis.use`',
+            }),
+        });
+        if (result instanceof Promise) {
+          return yield* Effect.tryPromise({
+            try: () => result,
+            catch: (e) =>
+              new RedisError({
+                cause: e,
+                message: 'Asynchronous error in `Redis.use`',
+              }),
+          });
+        }
+        return result;
+      }),
+  });
+});
+
+const RedisLive = Layer.scoped(Redis, bootstrapRedisEffect);
+
 interface RedisPubSubShape {
   publish: (
     channel: string,
@@ -145,7 +182,9 @@ export {
   RedisPersistence,
   RedisPubSub,
   RedisConnectionOptions,
+  Redis,
   RedisPersistenceLive,
   RedisPubSubLive,
   RedisConnectionOptionsLive,
+  RedisLive,
 };
