@@ -1,7 +1,6 @@
 import {
   Context,
   Duration,
-  Config,
   Effect,
   Fiber,
   Layer,
