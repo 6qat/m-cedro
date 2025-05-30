@@ -5,7 +5,11 @@ import {
   RedisPubSub,
   RedisPubSubLive,
 } from 'effect-redis';
-import { parseCedroMessage } from './cedro/cedroParser';
+import {
+  type CedroMessage,
+  parseCedroMessage,
+  humanizeCedroMessage,
+} from './cedroParser';
 
 const getIsoWeekString = (date: Date): string => {
   const d = new Date(
@@ -44,7 +48,8 @@ const program = Effect.gen(function* () {
   const stream = Stream.fromQueue(incomingQueue);
   yield* pipe(
     stream,
-    Stream.map(parseCedroMessage),
+    Stream.map((m) => JSON.parse(m) as CedroMessage),
+    Stream.map(humanizeCedroMessage),
     // Stream.tap((msg) => Effect.log(msg)),
     // Stream.filter((msg) => msg.lastTradeDate !== undefined),
     Stream.mapEffect((msg) =>

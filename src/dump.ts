@@ -1,7 +1,12 @@
-import { BunRuntime } from '@effect/platform-bun';
-import { Config, Duration, Effect, Fiber, Layer, Stream, pipe } from 'effect';
+/**
+ * Connects to Cedro TCP service and dumps messages to Redis. Messages are framed
+ * and split by '\r\n'. It publishes the raw messages to a Redis pubsub channel
+ * named 'raw'.
+ */
 
 import readline from 'node:readline';
+import { BunRuntime } from '@effect/platform-bun';
+import { Config, Duration, Effect, Fiber, Layer, Stream, pipe } from 'effect';
 import {
   ConnectionConfig,
   ConnectionConfigLive,
@@ -61,7 +66,8 @@ const program = Effect.gen(function* () {
     Stream.runDrain(messageProcessingStream),
     Effect.fork,
   );
-  streamFiber.addObserver((_e) => {
+  // Executes when fiber exits
+  streamFiber.addObserver((_exit) => {
     // console.log(e.toJSON());
   });
 
@@ -93,16 +99,10 @@ const program = Effect.gen(function* () {
   process.on('SIGINT', handleSignal);
   process.on('SIGTERM', handleSignal);
   process.on('unhandledRejection', (_reason, _promise) => {
-    // console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    // process.exit(1);
     console.log('Unhandled Rejection.');
-    shutdown();
   });
   process.on('uncaughtException', (_error, _origin) => {
-    // console.error('Uncaught Exception:', error);
-    // console.error('Exception origin:', origin);
-    // Perform any cleanup if needed
-    // process.exit(1); // Optional: exit after handling
+    console.log('Uncaught Exception.');
   });
 
   // Setup readline interface for stdin

@@ -177,4 +177,4 @@ const ConnectionConfigLive = (
     }),
   );
 
-export { TcpStreamLive, TcpStream, ConnectionConfigLive, ConnectionConfig };
+export { ConnectionConfig, ConnectionConfigLive, TcpStream, TcpStreamLive };

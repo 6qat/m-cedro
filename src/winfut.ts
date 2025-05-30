@@ -5,6 +5,7 @@ import {
   RedisPubSub,
   RedisPubSubLive,
 } from 'effect-redis';
+import { parseCedroMessage } from './cedroParser';
 
 const program = Effect.gen(function* () {
   const incomingQueue = yield* Queue.unbounded<string>();
@@ -16,7 +17,10 @@ const program = Effect.gen(function* () {
   yield* pipe(
     stream,
     Stream.filter((message) => message.startsWith('T:WIN')),
-    Stream.tap((message) => redisPubSub.publish('winfut', message)),
+    Stream.map(parseCedroMessage),
+    Stream.tap((message) =>
+      redisPubSub.publish('winfut', JSON.stringify(message)),
+    ),
     Stream.runDrain,
     Effect.fork,
   );

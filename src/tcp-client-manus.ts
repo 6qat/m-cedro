@@ -52,11 +52,11 @@ class TcpClient extends Context.Tag('@app/TcpClient')<
 
 // --- Implementation ---
 
-const makeTcpClient = (options: ConnectionOptions) =>
+export const makeTcpClient = (options: ConnectionOptions) =>
   Effect.gen(function* () {
     // Queue for incoming raw data chunks
     const dataQueue = yield* Effect.acquireRelease(
-      Queue.unbounded<Uint8Array>(),
+      Queue.bounded<Uint8Array>(1024),
       (q) => Queue.shutdown(q),
     );
 
@@ -137,10 +137,8 @@ const makeTcpClient = (options: ConnectionOptions) =>
     // Cleanup listeners on scope finalization
     Effect.addFinalizer(() => {
       Effect.logDebug('Removing TCP socket listeners');
-      socket.removeAllListeners('data');
-      socket.removeAllListeners('error');
-      socket.removeAllListeners('close');
-      socket.removeAllListeners('drain'); // Ensure drain listener is removed if added
+      socket.removeAllListeners();
+      if (!socket.destroyed) socket.destroy();
       return Exit.succeed(undefined);
     });
 

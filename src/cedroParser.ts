@@ -168,7 +168,7 @@ export interface CedroMessage {
 }
 
 // Known field mappings based on the provided documentation
-const FIELD_MAPPINGS: Record<number, string> = {
+export const FIELD_MAPPINGS: Record<number, string> = {
   0: 'lastModificationTime',
   1: 'lastModificationDate',
   2: 'lastTradePrice',
@@ -370,18 +370,20 @@ export function parseCedroMessage(message: string): CedroMessage {
 
   // Add time to the result if it exists
   if (time) {
-    result.lastModificationTime = time;
-  }
-
-  // Add mapped fields with proper types
-  for (const [fieldId, fieldName] of Object.entries(FIELD_MAPPINGS)) {
-    const numericId = Number.parseInt(fieldId, 10);
-    if (fields[numericId] !== undefined) {
-      result[fieldName] = fields[numericId];
-    }
+    result.fields[0] = time;
   }
 
   return result;
+}
+
+export function humanizeCedroMessage(message: CedroMessage): CedroMessage {
+  for (const [fieldId, fieldName] of Object.entries(FIELD_MAPPINGS)) {
+    const numericId = Number.parseInt(fieldId, 10);
+    if (message.fields[numericId] !== undefined) {
+      message[fieldName] = message.fields[numericId];
+    }
+  }
+  return message;
 }
 
 /**

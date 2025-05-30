@@ -2,7 +2,7 @@ import Ably from 'ably';
 import { ConvexClient } from 'convex/browser';
 import { Config, Effect, Option } from 'effect';
 // import { api } from '../convex/_generated/api';
-import { formatCedroMessage, parseCedroMessage } from './cedro/cedroParser';
+import { formatCedroMessage, parseCedroMessage } from './cedroParser';
 import type { ConnectionConfig } from './connection-config';
 // Configuration interface
 
