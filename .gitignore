@@ -42,3 +42,4 @@ dumps/
 build/
 credentials.ts
 redis-data
+mongodb-data
